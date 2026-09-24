@@ -1,29 +1,37 @@
 import { CdpClient } from "@coinbase/cdp-sdk";
-import { CdpX402Client } from "@coinbase/cdp-sdk/x402";
-import { wrapFetchWithPayment } from "@x402/fetch";
+import { x402Client, wrapFetchWithPayment } from "@x402/fetch";
+import { ExactEvmScheme } from "@x402/evm/exact/client";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 
 const target = process.env.X402_SMOKE_URL || "http://127.0.0.1:3000/risk-check";
 
-const client = new CdpX402Client({ environment: "development" });
-const { evmAddress } = await client.getAddresses();
+const privateKey = process.env.EVM_PRIVATE_KEY || generatePrivateKey();
+const signer = privateKeyToAccount(privateKey);
 
-console.log(`Buyer wallet: ${evmAddress}`);
+console.log(`Buyer wallet: ${signer.address}`);
 
 if (process.env.X402_FAUCET !== "false") {
   const cdp = new CdpClient();
   try {
     const faucet = await cdp.evm.requestFaucet({
-      address: evmAddress,
+      address: signer.address,
       network: "base-sepolia",
       token: "usdc"
     });
-    console.log("Requested Base Sepolia USDC faucet funding", faucet?.transactionHash || "");
+    console.log(
+      "Requested Base Sepolia USDC faucet funding",
+      faucet?.transactionHash || ""
+    );
   } catch (error) {
-    console.log("Faucet request did not complete; continuing in case wallet is already funded.");
+    console.log(
+      "Faucet request did not complete; continuing in case the wallet is already funded."
+    );
     console.log(error?.message || String(error));
   }
 }
 
+const client = new x402Client();
+client.register("eip155:*", new ExactEvmScheme(signer));
 const fetchWithPayment = wrapFetchWithPayment(globalThis.fetch, client);
 
 const payload = {
@@ -35,16 +43,31 @@ const payload = {
 
 let response;
 for (let attempt = 1; attempt <= 8; attempt += 1) {
-  response = await fetchWithPayment(target, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload)
-  });
+  try {
+    response = await fetchWithPayment(target, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    console.log(
+      `Attempt ${attempt}: payment request failed; retrying after faucet confirmation window`
+    );
+    console.log(error?.message || String(error));
+    await new Promise(resolve => setTimeout(resolve, 15000));
+    continue;
+  }
 
   if (response.status === 200) break;
 
-  console.log(`Attempt ${attempt}: HTTP ${response.status}; retrying after faucet confirmation window`);
+  console.log(
+    `Attempt ${attempt}: HTTP ${response.status}; retrying after faucet confirmation window`
+  );
   await new Promise(resolve => setTimeout(resolve, 15000));
+}
+
+if (!response) {
+  throw new Error("No response received from paid endpoint");
 }
 
 const body = await response.text();
