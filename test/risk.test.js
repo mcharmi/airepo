@@ -64,6 +64,22 @@ test("blocks configured sanctioned spender", () => {
   assert.equal(r.sanctioned_match, true);
 });
 
+test("blocks sanctioned spender on finite approval", () => {
+  const sanctions = new Set(["0x" + SPENDER]);
+  const data = "0x095ea7b3" + padAddress(SPENDER) + padUint(1);
+  const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" }, sanctions);
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.sanctioned_match, true);
+});
+
+test("blocks sanctioned spender on setApprovalForAll revoke", () => {
+  const sanctions = new Set(["0x" + SPENDER]);
+  const data = "0xa22cb465" + padAddress(SPENDER) + padUint(0);
+  const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" }, sanctions);
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.sanctioned_match, true);
+});
+
 test("reviews unknown selector", () => {
   const r = analyzeTransaction({ chain: "base", to: TO, data: "0x12345678", value: "0" });
   assert.equal(r.verdict, "REVIEW");

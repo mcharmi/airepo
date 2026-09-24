@@ -47,9 +47,15 @@ function baseResult() {
   };
 }
 
+const VERDICT_SEVERITY = {
+  ALLOW: 0,
+  REVIEW: 1,
+  BLOCK: 2
+};
+
 function raise(result, score, verdict, flag, reason) {
   result.risk_score = Math.max(result.risk_score, score);
-  if (verdict === "BLOCK" || (verdict === "REVIEW" && result.verdict === "ALLOW")) {
+  if (VERDICT_SEVERITY[verdict] > VERDICT_SEVERITY[result.verdict]) {
     result.verdict = verdict;
   }
   result.flags.push(flag);

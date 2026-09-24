@@ -33,7 +33,11 @@ app.post("/risk-check", (req, res) => {
   return res.json(result);
 });
 
-const port = Number(process.env.PORT || 3000);
-app.listen(port, () => {
-  console.log(`agent-sign-guard listening on :${port}`);
-});
+export { app };
+
+if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+  const port = Number(process.env.PORT || 3000);
+  app.listen(port, () => {
+    console.log(`agent-sign-guard listening on :${port}`);
+  });
+}
