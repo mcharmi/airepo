@@ -13,8 +13,19 @@ if (x402Enabled) {
       import("@x402/express")
     ]);
 
-  const environment =
+  const requestedEnvironment =
     process.env.X402_ENVIRONMENT === "production" ? "production" : "development";
+
+  if (
+    requestedEnvironment === "production" &&
+    process.env.ALLOW_MAINNET !== "true"
+  ) {
+    throw new Error(
+      "Refusing to start x402 in production. Set ALLOW_MAINNET=true only after Base Sepolia payment smoke tests pass."
+    );
+  }
+
+  const environment = requestedEnvironment;
 
   const x402Server = await createX402Server({
     environment,
