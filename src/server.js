@@ -4,6 +4,15 @@ import { loadSanctionsSet } from "./sanctions.js";
 
 const app = express();
 app.use(express.json({ limit: "64kb" }));
+app.use((err, _req, res, next) => {
+  if (err?.type === "entity.parse.failed") {
+    return res.status(400).json({
+      error: "INVALID_REQUEST",
+      message: "Expected valid JSON body with string fields: chain, to, data, value"
+    });
+  }
+  return next(err);
+});
 
 const sanctions = await loadSanctionsSet();
 

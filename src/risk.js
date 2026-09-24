@@ -105,7 +105,12 @@ export function analyzeTransaction(tx, sanctions = new Set()) {
     return result;
   }
 
-  if (data.length < 8 || data.length % 2 !== 0 || !/^[0-9a-f]+$/.test(data)) {
+  if (
+    data.length < 8 ||
+    data.length % 2 !== 0 ||
+    !/^[0-9a-f]+$/.test(data) ||
+    (data.length - 8) % 64 !== 0
+  ) {
     raise(result, 90, "BLOCK", "MALFORMED_CALLDATA", "Calldata is malformed");
     return result;
   }

@@ -53,3 +53,36 @@ npm run dev
 ```
 
 POST `/risk-check`
+
+Request requirements:
+- `chain`: string (MVP supports `"base"` only)
+- `to`: hex address string (`0x` + 40 hex chars)
+- `data`: hex calldata string with `0x` prefix (empty `0x` allowed)
+- `value`: integer string parseable by `BigInt` (for example `"0"` or `"1000000000000000"`)
+
+Example request:
+```json
+{
+  "chain": "base",
+  "to": "0x1111111111111111111111111111111111111111",
+  "data": "0x095ea7b30000000000000000000000002222222222222222222222222222222222222222ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "value": "0"
+}
+```
+
+Example response:
+```json
+{
+  "verdict": "BLOCK",
+  "risk_score": 100,
+  "action": "ERC20_APPROVE",
+  "to": "0x1111111111111111111111111111111111111111",
+  "spender": "0x2222222222222222222222222222222222222222",
+  "recipient": null,
+  "amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+  "unlimited_approval": true,
+  "sanctioned_match": false,
+  "flags": ["UNLIMITED_APPROVAL"],
+  "reasons": ["Unlimited ERC20 approval requested"]
+}
+```

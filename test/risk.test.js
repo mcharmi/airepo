@@ -91,6 +91,12 @@ test("reviews unknown selector", () => {
   assert.equal(r.verdict, "REVIEW");
 });
 
+test("blocks malformed selector-plus-trailing-bytes calldata", () => {
+  const r = analyzeTransaction({ chain: "base", to: TO, data: "0x1234567890", value: "0" });
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.flags.includes("MALFORMED_CALLDATA"), true);
+});
+
 test("blocks malformed calldata", () => {
   const r = analyzeTransaction({ chain: "base", to: TO, data: "0x095ea7b3ff", value: "0" });
   assert.equal(r.verdict, "BLOCK");

@@ -37,6 +37,19 @@ test("returns 400 for invalid risk-check payload", async () => {
   });
 });
 
+test("returns 400 JSON for malformed JSON body", async () => {
+  await withServer(async baseUrl => {
+    const res = await fetch(`${baseUrl}/risk-check`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{bad-json"
+    });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.equal(body.error, "INVALID_REQUEST");
+  });
+});
+
 test("returns 200 for valid risk-check payload", async () => {
   await withServer(async baseUrl => {
     const res = await fetch(`${baseUrl}/risk-check`, {
