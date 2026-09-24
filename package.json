@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "smoke:x402": "node scripts/x402-smoke.js"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.56.0",
@@ -14,6 +15,7 @@
     "@x402/express": "^2.25.0",
     "@x402/extensions": "^2.25.0",
     "@x402/svm": "^2.25.0",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "@x402/fetch": "^2.25.0"
   }
 }
