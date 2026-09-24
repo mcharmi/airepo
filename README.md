@@ -96,9 +96,9 @@ The risk engine remains free to run locally by default. To expose `POST /risk-ch
 X402_ENABLED=true \
 X402_ENVIRONMENT=development \
 X402_PRICE='$0.01' \
+PAY_TO='0xYOUR_EVM_ADDRESS' \
 CDP_API_KEY_ID='...' \
 CDP_API_KEY_SECRET='...' \
-CDP_WALLET_SECRET='...' \
 npm run dev
 ```
 
@@ -106,7 +106,7 @@ Use `development` first. Production mainnet must not be enabled until payment an
 
 `GET /health` stays free.
 
-The service uses Coinbase CDP's current x402 server integration. When x402 is enabled, `POST /risk-check` is payment-gated at the configured price.
+The service uses Coinbase CDP's current x402 server integration with a fixed `PAY_TO` EVM address. This keeps `createX402Server` and its discovery extensions while avoiding CDP receiver-wallet provisioning. `CDP_WALLET_SECRET` is therefore not required.
 
 ### Production blockers still intentionally open
 
@@ -124,8 +124,8 @@ It checks the complete paid path:
 
 1. starts Agent Sign Guard with x402 enabled in development mode
 2. confirms an unpaid request returns HTTP 402
-3. provisions a CDP-managed buyer wallet
-4. requests Base Sepolia USDC from the CDP faucet
+3. creates a disposable EVM buyer wallet locally
+4. requests Base Sepolia USDC for that address from the CDP faucet
 5. pays $0.01 through x402
 6. verifies the protected endpoint returns HTTP 200 and the expected deterministic risk result
 
@@ -133,6 +133,12 @@ Required GitHub repository secrets:
 
 `CDP_API_KEY_ID`
 `CDP_API_KEY_SECRET`
-`CDP_WALLET_SECRET`
 
 No mainnet funds are used by this workflow.
+
+
+### Receiver architecture
+
+Production payments are sent directly to the public EVM address in `PAY_TO`. The server does not need custody of that wallet and does not need its private key. The private key must never be stored in this repository.
+
+The Base Sepolia smoke workflow uses disposable receiver and buyer addresses, so no test-wallet secret needs to be maintained.
