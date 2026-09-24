@@ -10,7 +10,6 @@ jobs:
     env:
       CDP_API_KEY_ID: ${{ secrets.CDP_API_KEY_ID }}
       CDP_API_KEY_SECRET: ${{ secrets.CDP_API_KEY_SECRET }}
-      CDP_WALLET_SECRET: ${{ secrets.CDP_WALLET_SECRET }}
       X402_ENABLED: "true"
       X402_ENVIRONMENT: "development"
       X402_PRICE: "$0.01"
@@ -22,6 +21,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm install
+      - name: Create disposable test receiver
+        run: |
+          PAY_TO=$(node --input-type=module -e 'import {generatePrivateKey,privateKeyToAccount} from "viem/accounts"; console.log(privateKeyToAccount(generatePrivateKey()).address)')
+          echo "PAY_TO=$PAY_TO" >> "$GITHUB_ENV"
+          echo "Test receiver: $PAY_TO"
       - name: Start paid API
         run: |
           npm run dev > /tmp/agent-sign-guard.log 2>&1 &
@@ -36,10 +40,13 @@ jobs:
           exit 1
       - name: Confirm endpoint requires payment
         run: |
-          STATUS=$(curl -s -o /tmp/unpaid.json -w "%{http_code}"             -H "content-type: application/json"             -d '{"chain":"base","to":"0x1111111111111111111111111111111111111111","data":"0x","value":"1"}'             http://127.0.0.1:3000/risk-check)
+          STATUS=$(curl -s -o /tmp/unpaid.json -w "%{http_code}" \
+            -H "content-type: application/json" \
+            -d '{"chain":"base","to":"0x1111111111111111111111111111111111111111","data":"0x","value":"1"}' \
+            http://127.0.0.1:3000/risk-check)
           cat /tmp/unpaid.json
           test "$STATUS" = "402"
-      - name: Fund buyer and make paid request
+      - name: Create disposable buyer, fund it and make paid request
         run: npm run smoke:x402
       - name: Server log
         if: always()
