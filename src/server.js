@@ -25,13 +25,33 @@ if (x402Enabled) {
     );
   }
 
+  const payTo = (process.env.PAY_TO || "").trim();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(payTo)) {
+    throw new Error(
+      "PAY_TO must be a valid EVM address when x402 is enabled."
+    );
+  }
+
   const environment = requestedEnvironment;
+  const network =
+    environment === "production" ? "eip155:8453" : "eip155:84532";
 
   const x402Server = await createX402Server({
     environment,
+    payToConfig: {
+      type: "address",
+      evm: payTo
+    },
     routes: {
       "POST /risk-check": {
-        price: process.env.X402_PRICE || "$0.01",
+        accepts: [
+          {
+            scheme: "exact",
+            price: process.env.X402_PRICE || "$0.01",
+            network,
+            payTo: ""
+          }
+        ],
         description:
           "Deterministic pre-sign risk screening for unsigned Base EVM transactions. Detects ERC20 transfers, token approvals, unlimited approvals, setApprovalForAll, malformed calldata and configured sanctions matches. Returns machine-readable ALLOW, REVIEW or BLOCK."
       }
@@ -41,7 +61,7 @@ if (x402Enabled) {
   app.use(paymentMiddlewareFromHTTPServer(x402Server));
 
   console.log(
-    `x402 enabled (${environment}); EVM payments received at ${x402Server.payToEvmAddress}`
+    `x402 enabled (${environment}, ${network}); payments received at ${payTo}`
   );
 }
 
@@ -84,7 +104,7 @@ app.get("/health", (_req, res) => {
   res.json({
     ok: true,
     service: "agent-sign-guard",
-    version: "0.2.0",
+    version: "0.3.0",
     x402: x402Enabled
   });
 });
