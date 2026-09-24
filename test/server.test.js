@@ -34,6 +34,7 @@ test("returns 400 for invalid risk-check payload", async () => {
     const body = await res.json();
     assert.equal(res.status, 400);
     assert.equal(body.error, "INVALID_REQUEST");
+    assert.equal(body.message, "Expected JSON body with string fields: chain, to, data, value");
   });
 });
 
@@ -47,6 +48,24 @@ test("returns 400 JSON for malformed JSON body", async () => {
     const body = await res.json();
     assert.equal(res.status, 400);
     assert.equal(body.error, "INVALID_REQUEST");
+    assert.equal(body.message, "Expected valid JSON body with string fields: chain, to, data, value");
+  });
+});
+
+test("returns 400 for semantically invalid transaction payload", async () => {
+  await withServer(async baseUrl => {
+    const res = await fetch(`${baseUrl}/risk-check`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...VALID_BODY, chain: "ethereum" })
+    });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.equal(body.error, "INVALID_REQUEST");
+    assert.equal(
+      body.message,
+      "Invalid transaction fields: chain must be base, to must be 20-byte hex address, data must be hex calldata, value must be integer string"
+    );
   });
 });
 

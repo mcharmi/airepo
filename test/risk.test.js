@@ -47,6 +47,14 @@ test("decodes ERC20 transfer", () => {
   assert.equal(r.amount, "123");
 });
 
+test("blocks sanctioned ERC20 transfer recipient", () => {
+  const sanctions = new Set(["0x" + RECIPIENT]);
+  const data = "0xa9059cbb" + padAddress(RECIPIENT) + padUint(123);
+  const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" }, sanctions);
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.sanctioned_match, true);
+});
+
 test("blocks setApprovalForAll true", () => {
   const data = "0xa22cb465" + padAddress(SPENDER) + padUint(1);
   const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" });
