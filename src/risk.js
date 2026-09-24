@@ -1,7 +1,8 @@
 const SELECTORS = {
   ERC20_TRANSFER: "a9059cbb",
   ERC20_APPROVE: "095ea7b3",
-  SET_APPROVAL_FOR_ALL: "a22cb465"
+  SET_APPROVAL_FOR_ALL: "a22cb465",
+  EIP2612_PERMIT: "d505accf"
 };
 
 const MAX_UINT256 = (1n << 256n) - 1n;
@@ -146,6 +147,30 @@ export function analyzeTransaction(tx, sanctions = new Set()) {
         raise(result, 85, "BLOCK", "UNLIMITED_APPROVAL", "Unlimited ERC20 approval requested");
       } else if (amount > 0n) {
         raise(result, 35, "REVIEW", "TOKEN_APPROVAL", "ERC20 token approval grants spending authority");
+      }
+      return result;
+    }
+
+    if (selector === SELECTORS.EIP2612_PERMIT) {
+      result.action = "EIP2612_PERMIT";
+      // permit(owner, spender, value, deadline, v, r, s)
+      if (data.length < 8 + 7 * 64) {
+        throw new Error("malformed permit");
+      }
+      result.spender = asAddress(word(data, 1));
+      const amount = asUint(word(data, 2));
+      result.amount = amount.toString();
+
+      if (sanctions.has(result.spender)) {
+        result.sanctioned_match = true;
+        raise(result, 100, "BLOCK", "SANCTIONS_MATCH", "Permit spender matches configured sanctions data");
+      }
+
+      if (amount === MAX_UINT256) {
+        result.unlimited_approval = true;
+        raise(result, 90, "BLOCK", "UNLIMITED_PERMIT", "Unlimited token permit requested");
+      } else if (amount > 0n) {
+        raise(result, 45, "REVIEW", "TOKEN_PERMIT", "Permit grants token spending authority without an on-chain approval transaction");
       }
       return result;
     }
