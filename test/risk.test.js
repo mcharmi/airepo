@@ -128,3 +128,37 @@ test("blocks signed native value format", () => {
   assert.equal(r.verdict, "BLOCK");
   assert.equal(r.flags.includes("INVALID_VALUE"), true);
 });
+
+
+test("blocks unlimited EIP-2612 permit", () => {
+  const owner = "4444444444444444444444444444444444444444";
+  const data =
+    "0xd505accf" +
+    padAddress(owner) +
+    padAddress(SPENDER) +
+    "f".repeat(64) +
+    padUint(9999999999) +
+    padUint(27) +
+    "0".repeat(64) +
+    "0".repeat(64);
+  const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" });
+  assert.equal(r.action, "EIP2612_PERMIT");
+  assert.equal(r.unlimited_approval, true);
+  assert.equal(r.verdict, "BLOCK");
+});
+
+test("reviews finite EIP-2612 permit", () => {
+  const owner = "4444444444444444444444444444444444444444";
+  const data =
+    "0xd505accf" +
+    padAddress(owner) +
+    padAddress(SPENDER) +
+    padUint(1000) +
+    padUint(9999999999) +
+    padUint(27) +
+    "0".repeat(64) +
+    "0".repeat(64);
+  const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" });
+  assert.equal(r.action, "EIP2612_PERMIT");
+  assert.equal(r.verdict, "REVIEW");
+});
