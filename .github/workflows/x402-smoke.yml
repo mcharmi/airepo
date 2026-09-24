@@ -23,6 +23,28 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm install
+      - name: Validate CDP facilitator credentials
+        run: |
+          JWT=$(node --input-type=module <<'NODE'
+          import { generateJwt } from "@coinbase/cdp-sdk/auth";
+          const token = await generateJwt({
+            apiKeyId: process.env.CDP_API_KEY_ID,
+            apiKeySecret: process.env.CDP_API_KEY_SECRET,
+            requestMethod: "GET",
+            requestHost: "api.cdp.coinbase.com",
+            requestPath: "/platform/v2/x402/supported"
+          });
+          process.stdout.write(token);
+          NODE
+          )
+          STATUS=$(curl -sS -o /tmp/cdp-supported.json -w "%{http_code}" \
+            -H "Authorization: Bearer $JWT" \
+            https://api.cdp.coinbase.com/platform/v2/x402/supported)
+          echo "CDP facilitator auth HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            cat /tmp/cdp-supported.json || true
+            exit 1
+          fi
       - name: Create disposable test receiver
         run: |
           PAY_TO=$(node --input-type=module -e 'import {generatePrivateKey,privateKeyToAccount} from "viem/accounts"; console.log(privateKeyToAccount(generatePrivateKey()).address)')
