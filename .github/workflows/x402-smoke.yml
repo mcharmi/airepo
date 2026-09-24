@@ -1,0 +1,46 @@
+name: x402 Sepolia smoke test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CDP_API_KEY_ID: ${{ secrets.CDP_API_KEY_ID }}
+      CDP_API_KEY_SECRET: ${{ secrets.CDP_API_KEY_SECRET }}
+      CDP_WALLET_SECRET: ${{ secrets.CDP_WALLET_SECRET }}
+      X402_ENABLED: "true"
+      X402_ENVIRONMENT: "development"
+      X402_PRICE: "$0.01"
+      X402_SMOKE_URL: "http://127.0.0.1:3000/risk-check"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - name: Start paid API
+        run: |
+          npm run dev > /tmp/agent-sign-guard.log 2>&1 &
+          echo $! > /tmp/agent-sign-guard.pid
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3000/health >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/agent-sign-guard.log
+          exit 1
+      - name: Confirm endpoint requires payment
+        run: |
+          STATUS=$(curl -s -o /tmp/unpaid.json -w "%{http_code}"             -H "content-type: application/json"             -d '{"chain":"base","to":"0x1111111111111111111111111111111111111111","data":"0x","value":"1"}'             http://127.0.0.1:3000/risk-check)
+          cat /tmp/unpaid.json
+          test "$STATUS" = "402"
+      - name: Fund buyer and make paid request
+        run: npm run smoke:x402
+      - name: Server log
+        if: always()
+        run: cat /tmp/agent-sign-guard.log || true
