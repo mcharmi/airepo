@@ -31,6 +31,11 @@ function asBoolStrict(w) {
   return v === 1n;
 }
 
+function parseValue(value) {
+  if (typeof value !== "string") throw new Error("invalid value");
+  return BigInt(value);
+}
+
 function baseResult() {
   return {
     verdict: "ALLOW",
@@ -84,7 +89,19 @@ export function analyzeTransaction(tx, sanctions = new Set()) {
 
   const data = strip0x(tx.data || "").toLowerCase();
   if (data.length === 0) {
-    result.action = "NATIVE_TRANSFER";
+    let nativeValue;
+    try {
+      nativeValue = parseValue(tx.value);
+    } catch {
+      raise(result, 90, "BLOCK", "INVALID_VALUE", "Transaction value is not a valid integer string");
+      return result;
+    }
+    if (nativeValue > 0n) {
+      result.action = "NATIVE_TRANSFER";
+      return result;
+    }
+    result.action = "EMPTY_CALLDATA";
+    raise(result, 20, "REVIEW", "EMPTY_CALLDATA_NO_VALUE", "Empty calldata with zero native value is not a native transfer");
     return result;
   }
 

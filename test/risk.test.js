@@ -19,6 +19,12 @@ test("allows plain native transfer", () => {
   assert.equal(r.action, "NATIVE_TRANSFER");
 });
 
+test("reviews empty calldata with zero value", () => {
+  const r = analyzeTransaction({ chain: "base", to: TO, data: "0x", value: "0" });
+  assert.equal(r.verdict, "REVIEW");
+  assert.equal(r.action, "EMPTY_CALLDATA");
+});
+
 test("blocks unlimited ERC20 approval", () => {
   const data = "0x095ea7b3" + padAddress(SPENDER) + "f".repeat(64);
   const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" });

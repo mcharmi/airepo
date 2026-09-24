@@ -6,7 +6,7 @@ const VALID_BODY = {
   chain: "base",
   to: "0x1111111111111111111111111111111111111111",
   data: "0x",
-  value: "0"
+  value: "1"
 };
 
 function withServer(run) {
@@ -48,5 +48,37 @@ test("returns 200 for valid risk-check payload", async () => {
     assert.equal(res.status, 200);
     assert.equal(body.verdict, "ALLOW");
     assert.equal(body.action, "NATIVE_TRANSFER");
+  });
+});
+
+test("returns review verdict for unknown selector payload", async () => {
+  await withServer(async baseUrl => {
+    const res = await fetch(`${baseUrl}/risk-check`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...VALID_BODY, data: "0x12345678", value: "0" })
+    });
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(body.verdict, "REVIEW");
+    assert.equal(body.flags.includes("UNKNOWN_SELECTOR"), true);
+  });
+});
+
+test("returns block verdict for unlimited approval payload", async () => {
+  await withServer(async baseUrl => {
+    const data =
+      "0x095ea7b3" +
+      "2222222222222222222222222222222222222222".padStart(64, "0") +
+      "f".repeat(64);
+    const res = await fetch(`${baseUrl}/risk-check`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...VALID_BODY, data, value: "0" })
+    });
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(body.verdict, "BLOCK");
+    assert.equal(body.action, "ERC20_APPROVE");
   });
 });
