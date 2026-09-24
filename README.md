@@ -86,3 +86,31 @@ Example response:
   "reasons": ["Unlimited ERC20 approval requested"]
 }
 ```
+
+
+## x402 paid mode
+
+The risk engine remains free to run locally by default. To expose `POST /risk-check` as a paid x402 endpoint:
+
+```bash
+X402_ENABLED=true \
+X402_ENVIRONMENT=development \
+X402_PRICE='$0.01' \
+CDP_API_KEY_ID='...' \
+CDP_API_KEY_SECRET='...' \
+CDP_WALLET_SECRET='...' \
+npm run dev
+```
+
+Use `development` first. Production mainnet must not be enabled until payment and response smoke tests pass.
+
+`GET /health` stays free.
+
+The service uses Coinbase CDP's current x402 server integration. When x402 is enabled, `POST /risk-check` is payment-gated at the configured price.
+
+### Production blockers still intentionally open
+
+- Replace the manually configured sanctions addresses with a verified, automatically refreshed official sanctions-data pipeline.
+- Add deterministic handling for common EIP-2612 / Permit2 approval variants.
+- Run a paid Base Sepolia smoke test before enabling mainnet.
+- Deploy behind HTTPS with request logging, rate limits and uptime monitoring.
