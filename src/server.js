@@ -4,6 +4,36 @@ import { analyzeTransaction } from "./risk.js";
 import { loadSanctionsSet } from "./sanctions.js";
 
 const app = express();
+const x402Enabled = process.env.X402_ENABLED === "true";
+
+if (x402Enabled) {
+  const [{ createX402Server }, { paymentMiddlewareFromHTTPServer }] =
+    await Promise.all([
+      import("@coinbase/cdp-sdk/x402"),
+      import("@x402/express")
+    ]);
+
+  const environment =
+    process.env.X402_ENVIRONMENT === "production" ? "production" : "development";
+
+  const x402Server = await createX402Server({
+    environment,
+    routes: {
+      "POST /risk-check": {
+        price: process.env.X402_PRICE || "$0.01",
+        description:
+          "Deterministic pre-sign risk screening for unsigned Base EVM transactions. Detects ERC20 transfers, token approvals, unlimited approvals, setApprovalForAll, malformed calldata and configured sanctions matches. Returns machine-readable ALLOW, REVIEW or BLOCK."
+      }
+    }
+  });
+
+  app.use(paymentMiddlewareFromHTTPServer(x402Server));
+
+  console.log(
+    `x402 enabled (${environment}); EVM payments received at ${x402Server.payToEvmAddress}`
+  );
+}
+
 app.use(express.json({ limit: "64kb" }));
 app.use((err, _req, res, next) => {
   if (err?.type === "entity.parse.failed" || err?.type === "entity.too.large") {
@@ -40,7 +70,12 @@ function isSemanticallyValidPayload(body) {
 }
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "agent-sign-guard", version: "0.1.0" });
+  res.json({
+    ok: true,
+    service: "agent-sign-guard",
+    version: "0.2.0",
+    x402: x402Enabled
+  });
 });
 
 app.post("/risk-check", (req, res) => {
@@ -53,9 +88,11 @@ app.post("/risk-check", (req, res) => {
   if (!isSemanticallyValidPayload(req.body)) {
     return res.status(400).json({
       error: "INVALID_REQUEST",
-      message: "Invalid transaction fields: chain must be base, to must be 20-byte hex address, data must be hex calldata, value must be non-negative integer string"
+      message:
+        "Invalid transaction fields: chain must be base, to must be 20-byte hex address, data must be hex calldata, value must be non-negative integer string"
     });
   }
+
   const sanctions = loadSanctionsSet();
   const result = analyzeTransaction(req.body, sanctions);
   return res.json(result);
