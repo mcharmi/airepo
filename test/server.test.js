@@ -69,6 +69,19 @@ test("returns 400 for semantically invalid transaction payload", async () => {
   });
 });
 
+test("returns 400 for negative transaction value", async () => {
+  await withServer(async baseUrl => {
+    const res = await fetch(`${baseUrl}/risk-check`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...VALID_BODY, value: "-1" })
+    });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.equal(body.error, "INVALID_REQUEST");
+  });
+});
+
 test("returns 200 for valid risk-check payload", async () => {
   await withServer(async baseUrl => {
     const res = await fetch(`${baseUrl}/risk-check`, {

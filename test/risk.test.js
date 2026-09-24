@@ -55,6 +55,13 @@ test("blocks sanctioned ERC20 transfer recipient", () => {
   assert.equal(r.sanctioned_match, true);
 });
 
+test("blocks sanctioned destination contract", () => {
+  const sanctions = new Set([TO]);
+  const r = analyzeTransaction({ chain: "base", to: TO, data: "0x12345678", value: "0" }, sanctions);
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.sanctioned_match, true);
+});
+
 test("blocks setApprovalForAll true", () => {
   const data = "0xa22cb465" + padAddress(SPENDER) + padUint(1);
   const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" });
@@ -108,4 +115,10 @@ test("blocks malformed selector-plus-trailing-bytes calldata", () => {
 test("blocks malformed calldata", () => {
   const r = analyzeTransaction({ chain: "base", to: TO, data: "0x095ea7b3ff", value: "0" });
   assert.equal(r.verdict, "BLOCK");
+});
+
+test("blocks negative native value", () => {
+  const r = analyzeTransaction({ chain: "base", to: TO, data: "0x", value: "-1" });
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.flags.includes("INVALID_VALUE"), true);
 });

@@ -31,7 +31,7 @@ function isSemanticallyValidPayload(body) {
   if (!/^0x[0-9a-fA-F]{40}$/.test(body.to)) return false;
   if (!/^0x([0-9a-fA-F]{2})*$/.test(body.data)) return false;
   try {
-    BigInt(body.value);
+    if (BigInt(body.value) < 0n) return false;
   } catch {
     return false;
   }

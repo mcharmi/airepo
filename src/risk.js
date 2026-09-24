@@ -33,7 +33,9 @@ function asBoolStrict(w) {
 
 function parseValue(value) {
   if (typeof value !== "string") throw new Error("invalid value");
-  return BigInt(value);
+  const parsed = BigInt(value);
+  if (parsed < 0n) throw new Error("invalid value");
+  return parsed;
 }
 
 function baseResult() {
