@@ -114,3 +114,25 @@ The service uses Coinbase CDP's current x402 server integration. When x402 is en
 - EIP-2612 permit is covered. Permit2 and additional permit variants remain to be added.
 - Run a paid Base Sepolia smoke test before enabling mainnet.
 - Deploy behind HTTPS with request logging, rate limits and uptime monitoring.
+
+
+## Base Sepolia end-to-end payment test
+
+A manual GitHub Actions workflow is included at `.github/workflows/x402-smoke.yml`.
+
+It checks the complete paid path:
+
+1. starts Agent Sign Guard with x402 enabled in development mode
+2. confirms an unpaid request returns HTTP 402
+3. provisions a CDP-managed buyer wallet
+4. requests Base Sepolia USDC from the CDP faucet
+5. pays $0.01 through x402
+6. verifies the protected endpoint returns HTTP 200 and the expected deterministic risk result
+
+Required GitHub repository secrets:
+
+`CDP_API_KEY_ID`
+`CDP_API_KEY_SECRET`
+`CDP_WALLET_SECRET`
+
+No mainnet funds are used by this workflow.
