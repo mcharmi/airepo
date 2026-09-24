@@ -4,6 +4,7 @@ import { analyzeTransaction } from "./risk.js";
 import { loadSanctionsSet } from "./sanctions.js";
 
 const app = express();
+app.set("trust proxy", 1);
 const x402Enabled = process.env.X402_ENABLED === "true";
 
 if (x402Enabled) {
