@@ -25,6 +25,12 @@ function asUint(w) {
   return BigInt("0x" + w);
 }
 
+function asBoolStrict(w) {
+  const v = asUint(w);
+  if (v !== 0n && v !== 1n) throw new Error("malformed bool");
+  return v === 1n;
+}
+
 function baseResult() {
   return {
     verdict: "ALLOW",
@@ -118,7 +124,7 @@ export function analyzeTransaction(tx, sanctions = new Set()) {
     if (selector === SELECTORS.SET_APPROVAL_FOR_ALL) {
       result.action = "SET_APPROVAL_FOR_ALL";
       result.spender = asAddress(word(data, 0));
-      const approved = asUint(word(data, 1)) !== 0n;
+      const approved = asBoolStrict(word(data, 1));
 
       if (sanctions.has(result.spender)) {
         result.sanctioned_match = true;

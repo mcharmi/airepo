@@ -48,6 +48,14 @@ test("blocks setApprovalForAll true", () => {
   assert.equal(r.action, "SET_APPROVAL_FOR_ALL");
 });
 
+test("blocks malformed setApprovalForAll bool value", () => {
+  const data = "0xa22cb465" + padAddress(SPENDER) + padUint(2);
+  const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" });
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.action, "SET_APPROVAL_FOR_ALL");
+  assert.equal(r.flags.includes("MALFORMED_CALLDATA"), true);
+});
+
 test("blocks configured sanctioned spender", () => {
   const sanctions = new Set(["0x" + SPENDER]);
   const data = "0x095ea7b3" + padAddress(SPENDER) + padUint(5);
