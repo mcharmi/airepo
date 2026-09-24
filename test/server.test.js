@@ -64,7 +64,7 @@ test("returns 400 for semantically invalid transaction payload", async () => {
     assert.equal(body.error, "INVALID_REQUEST");
     assert.equal(
       body.message,
-      "Invalid transaction fields: chain must be base, to must be 20-byte hex address, data must be hex calldata, value must be integer string"
+      "Invalid transaction fields: chain must be base, to must be 20-byte hex address, data must be hex calldata, value must be non-negative integer string"
     );
   });
 });
@@ -79,6 +79,34 @@ test("returns 400 for negative transaction value", async () => {
     const body = await res.json();
     assert.equal(res.status, 400);
     assert.equal(body.error, "INVALID_REQUEST");
+  });
+});
+
+test("returns 400 for signed value format", async () => {
+  await withServer(async baseUrl => {
+    const res = await fetch(`${baseUrl}/risk-check`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...VALID_BODY, value: "+1" })
+    });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.equal(body.error, "INVALID_REQUEST");
+  });
+});
+
+test("returns 400 JSON for request body over size limit", async () => {
+  await withServer(async baseUrl => {
+    const hugeData = "0x" + "aa".repeat(70000);
+    const res = await fetch(`${baseUrl}/risk-check`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...VALID_BODY, data: hugeData })
+    });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.equal(body.error, "INVALID_REQUEST");
+    assert.equal(body.message, "Expected valid JSON body with string fields: chain, to, data, value");
   });
 });
 

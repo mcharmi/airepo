@@ -122,3 +122,9 @@ test("blocks negative native value", () => {
   assert.equal(r.verdict, "BLOCK");
   assert.equal(r.flags.includes("INVALID_VALUE"), true);
 });
+
+test("blocks signed native value format", () => {
+  const r = analyzeTransaction({ chain: "base", to: TO, data: "0x", value: "+1" });
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.flags.includes("INVALID_VALUE"), true);
+});

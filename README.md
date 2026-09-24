@@ -58,7 +58,7 @@ Request requirements:
 - `chain`: string (MVP supports `"base"` only)
 - `to`: hex address string (`0x` + 40 hex chars)
 - `data`: hex calldata string with `0x` prefix (empty `0x` allowed)
-- `value`: integer string parseable by `BigInt` (for example `"0"` or `"1000000000000000"`)
+- `value`: non-negative integer string using digits only (for example `"0"` or `"1000000000000000"`)
 
 Example request:
 ```json

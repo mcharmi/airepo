@@ -6,7 +6,7 @@ import { loadSanctionsSet } from "./sanctions.js";
 const app = express();
 app.use(express.json({ limit: "64kb" }));
 app.use((err, _req, res, next) => {
-  if (err?.type === "entity.parse.failed") {
+  if (err?.type === "entity.parse.failed" || err?.type === "entity.too.large") {
     return res.status(400).json({
       error: "INVALID_REQUEST",
       message: "Expected valid JSON body with string fields: chain, to, data, value"
@@ -30,8 +30,9 @@ function isSemanticallyValidPayload(body) {
   if (body.chain !== "base") return false;
   if (!/^0x[0-9a-fA-F]{40}$/.test(body.to)) return false;
   if (!/^0x([0-9a-fA-F]{2})*$/.test(body.data)) return false;
+  if (!/^\d+$/.test(body.value)) return false;
   try {
-    if (BigInt(body.value) < 0n) return false;
+    BigInt(body.value);
   } catch {
     return false;
   }
@@ -52,7 +53,7 @@ app.post("/risk-check", (req, res) => {
   if (!isSemanticallyValidPayload(req.body)) {
     return res.status(400).json({
       error: "INVALID_REQUEST",
-      message: "Invalid transaction fields: chain must be base, to must be 20-byte hex address, data must be hex calldata, value must be integer string"
+      message: "Invalid transaction fields: chain must be base, to must be 20-byte hex address, data must be hex calldata, value must be non-negative integer string"
     });
   }
   const sanctions = loadSanctionsSet();
