@@ -111,6 +111,6 @@ The service uses Coinbase CDP's current x402 server integration. When x402 is en
 ### Production blockers still intentionally open
 
 - Replace the manually configured sanctions addresses with a verified, automatically refreshed official sanctions-data pipeline.
-- Add deterministic handling for common EIP-2612 / Permit2 approval variants.
+- EIP-2612 permit is covered. Permit2 and additional permit variants remain to be added.
 - Run a paid Base Sepolia smoke test before enabling mainnet.
 - Deploy behind HTTPS with request logging, rate limits and uptime monitoring.
