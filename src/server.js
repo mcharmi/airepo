@@ -14,8 +14,6 @@ app.use((err, _req, res, next) => {
   return next(err);
 });
 
-const sanctions = await loadSanctionsSet();
-
 function isRiskCheckPayload(body) {
   return (
     !!body &&
@@ -38,6 +36,7 @@ app.post("/risk-check", (req, res) => {
       message: "Expected JSON body with string fields: chain, to, data, value"
     });
   }
+  const sanctions = loadSanctionsSet();
   const result = analyzeTransaction(req.body, sanctions);
   return res.json(result);
 });

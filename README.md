@@ -74,7 +74,7 @@ Example response:
 ```json
 {
   "verdict": "BLOCK",
-  "risk_score": 100,
+  "risk_score": 85,
   "action": "ERC20_APPROVE",
   "to": "0x1111111111111111111111111111111111111111",
   "spender": "0x2222222222222222222222222222222222222222",
