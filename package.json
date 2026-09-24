@@ -1,6 +1,6 @@
 {
   "name": "agent-sign-guard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,6 +8,12 @@
     "test": "node --test"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "@coinbase/cdp-sdk": "^1.56.0",
+    "@x402/core": "^2.25.0",
+    "@x402/evm": "^2.25.0",
+    "@x402/express": "^2.25.0",
+    "@x402/extensions": "^2.25.0",
+    "@x402/svm": "^2.25.0",
+    "express": "^5.2.1"
   }
 }
