@@ -10,6 +10,7 @@ app.post('/internal/leads',async(req,res)=>{if(!authorized(req))return res.statu
 app.post('/internal/campaigns',async(req,res)=>{if(!authorized(req))return res.status(401).json({error:'unauthorized'});try{res.status(201).json(await createCampaign(req.body))}catch(e){console.error('campaign error',e.message);res.status(502).json({error:'instantly_error',message:e.message})}});
 
 async function bootstrap(){
+ if(process.env.INSTANTLY_TEST_LEAD==='1'){try{const lead=await addLead({email:'test@avamail.de',company_name:'Mediaquadrat Test',personalization:'Test der Reputation-Management-Outreach-Pipeline',custom_variables:{case_id:'test-case',review_id:'test-review',review_url:'https://example.com/review',review_text:'Testbewertung',review_stars:'1',google_place_id:'test-place',profile_rating:'4.5',profile_review_count:'100',order_url:'https://example.com/order'}});console.log('INSTANTLY_TEST_LEAD_CREATED lead_id='+String(lead.id||'unknown'))}catch(e){console.error('INSTANTLY_TEST_LEAD_FAILED '+e.message)}}
  if(process.env.INSTANTLY_BOOTSTRAP!=='1') return;
  try{
   console.log('Instantly bootstrap starting');
