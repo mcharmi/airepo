@@ -1,0 +1,30 @@
+{
+  "campaignName": "Zahnarzt NRW",
+  "industry": "Zahnarzt",
+  "location": {
+    "country": "DE",
+    "state": "Nordrhein-Westfalen",
+    "cities": []
+  },
+  "reviewFilters": {
+    "maxStars": 2,
+    "minProfileRating": 3.5,
+    "maxProfileRating": 5.0,
+    "minReviewCount": 5,
+    "maxReviewAgeDays": 365,
+    "onlyWithReviewText": true
+  },
+  "leadFilters": {
+    "requireWebsite": true,
+    "requireEmail": true
+  },
+  "outreach": {
+    "enabled": false,
+    "priceNetEur": 79,
+    "billingModel": "success_only"
+  },
+  "workflow": {
+    "stopAfterSignedPowerOfAttorney": true,
+    "manualRemovalProcess": true
+  }
+}
