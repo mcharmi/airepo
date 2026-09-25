@@ -1,0 +1,19 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Auftrag & Vollmacht</title><style>body{font-family:system-ui,sans-serif;background:#f6f7f9;margin:0}.wrap{max-width:720px;margin:40px auto;padding:18px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:22px}input{width:100%;box-sizing:border-box;padding:10px;margin:5px 0 12px;border:1px solid #ccd1d8;border-radius:8px}button{padding:11px 16px;background:#111827;color:#fff;border:0;border-radius:8px}.review{padding:12px;background:#f4f5f7;border-radius:8px}label.check{display:flex;gap:9px;margin:12px 0}.check input{width:auto;margin:3px 0}</style></head><body><div class="wrap"><div class="card" id="app">Lade…</div></div><script>
+const token=new URLSearchParams(location.search).get('token');
+const app=document.querySelector('#app');
+const esc=x=>String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+async function load(){
+  const r=await fetch('/api/orders/by-token/'+encodeURIComponent(token));
+  if(!r.ok){app.textContent='Auftrag nicht gefunden.';return}
+  const d=await r.json();
+  if(d.order.status==='accepted_poa_signed'){app.innerHTML='<h1>Auftrag bestätigt</h1><p>Die Unterlagen liegen zur manuellen Bearbeitung vor.</p>';return}
+  app.innerHTML=`<h1>Auftrag & Vollmacht</h1><p>Prüfung und zulässiges Entfernungsverfahren für die unten bezeichnete Google-Bewertung.</p><div class="review"><b>${esc(d.case.business.name)}</b><p>„${esc(d.case.review.text)}“</p></div><p><b>Honorar:</b> ${d.order.priceNetEur.toFixed(2).replace('.',',')} EUR netto, ausschließlich bei erfolgreicher Entfernung genau dieser Bewertung.</p><form id="f"><label>Unternehmen</label><input name="companyName" value="${esc(d.case.business.name)}" required><label>Vor- und Nachname</label><input name="fullName" required><label>E-Mail</label><input name="email" type="email" value="${esc(d.case.business.email)}" required><label class="check"><input name="terms" type="checkbox" required> <span>Ich beauftrage die Prüfung und Durchführung des zulässigen Entfernungsverfahrens zu den oben genannten Erfolgskonditionen. Mir ist bekannt, dass eine Entfernung nicht garantiert werden kann.</span></label><label class="check"><input name="poa" type="checkbox" required> <span>Ich bevollmächtige den Auftragnehmer, mich gegenüber Google im Zusammenhang mit der konkret bezeichneten Bewertung zu vertreten und die hierfür erforderliche Kommunikation zu führen.</span></label><button>Verbindlich beauftragen und Vollmacht erteilen</button></form>`;
+  document.querySelector('#f').onsubmit=async e=>{
+    e.preventDefault();const f=new FormData(e.target);
+    const body={companyName:f.get('companyName'),fullName:f.get('fullName'),email:f.get('email'),termsAccepted:!!f.get('terms'),authorityAccepted:!!f.get('poa')};
+    const x=await fetch('/api/orders/by-token/'+encodeURIComponent(token)+'/accept',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    if(x.ok)load();else alert('Bitte alle Pflichtfelder bestätigen.');
+  };
+}
+load();
+</script></body></html>
