@@ -1,7 +1,7 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reputation Agent</title><style>
 body{font-family:system-ui,sans-serif;margin:0;background:#f6f7f9;color:#16181d}.wrap{max-width:1100px;margin:40px auto;padding:0 18px}h1{margin-bottom:4px}.muted{color:#67707d}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:white;border:1px solid #e5e7eb;border-radius:14px;padding:18px;margin:14px 0}label{display:block;font-size:13px;margin:10px 0 4px}input,select,textarea,button{font:inherit}input,select,textarea{width:100%;box-sizing:border-box;padding:10px;border:1px solid #ccd1d8;border-radius:8px}button{padding:10px 14px;border:0;border-radius:8px;background:#111827;color:white;cursor:pointer}.secondary{background:#e9edf2;color:#111}.case{border-top:1px solid #eee;padding:12px 0}.pill{font-size:12px;padding:3px 7px;border-radius:999px;background:#eef2ff}.ok{background:#eaf8ef}pre{white-space:pre-wrap}@media(max-width:760px){.grid{grid-template-columns:1fr}}
 </style></head><body><div class="wrap"><h1>Reputation Agent</h1><div class="muted">MVP: Kampagne → Import → Vorprüfung → Freigabe → Auftrag + Vollmacht → manueller Removal-Handoff</div>
-<div class="grid"><div class="card"><h2>Kampagne</h2><form id="campaign"><label>Name</label><input name="name" value="Zahnärzte NRW"><label>Branche</label><input name="industry" value="Zahnarzt"><label>Bundesland / Region</label><input name="state" value="Nordrhein-Westfalen"><label>Max. Sterne der Zielbewertung</label><input name="maxStars" type="number" min="1" max="5" value="2"><label>Mindestanzahl Profilbewertungen</label><input name="minReviewCount" type="number" value="5"><button>Erstellen</button> <button type="button" class="secondary" id="demo">Demo laden</button></form></div>
+<div class="grid"><div class="card"><h2>Kampagne</h2><form id="campaign"><label>Name</label><input name="name" value="Zahnärzte NRW"><label>Branche</label><input name="industry" value="Zahnarzt"><label>Bundesland / Region</label><input name="state" value="Nordrhein-Westfalen"><label>Max. Sterne der Zielbewertung</label><input name="maxStars" type="number" min="1" max="5" value="2"><label>Mindestanzahl Profilbewertungen</label><input name="minReviewCount" type="number" value="5"><button>Erstellen</button> <button type="button" id="search">Fälle suchen</button> <button type="button" class="secondary" id="demo">Demo laden</button></form></div>
 <div class="card"><h2>Datenimport</h2><p class="muted">JSON-Zeilen importieren. Für Live-Betrieb können Daten aus einem externen Google-Review-Datenanbieter hier eingespeist werden.</p><textarea id="rows" rows="10">[{"businessName":"Praxis Beispiel GmbH","website":"https://example.org","email":"kontakt@example.org","profileRating":4.7,"totalReviews":124,"rating":1,"text":"Ich war nie Kunde und kenne die Praxis nicht.","reviewUrl":"https://example.org/review"}]</textarea><button id="import">In aktive Kampagne importieren</button></div></div>
 <div class="card"><h2>Fälle</h2><div id="cases"></div></div></div><script>
 let activeCampaign=null;
@@ -17,6 +17,17 @@ document.querySelector('#campaign').onsubmit=async e=>{
   const body={name:f.get('name'),industry:f.get('industry'),state:f.get('state'),reviewFilters:{maxStars:+f.get('maxStars'),minReviewCount:+f.get('minReviewCount')}};
   const c=await fetch('/api/campaigns',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
   activeCampaign=c.id;state();
+};
+document.querySelector('#search').onclick=async()=>{
+  if(!activeCampaign)return alert('Zuerst Kampagne erstellen');
+  const b=document.querySelector('#search');b.disabled=true;b.textContent='Suche läuft…';
+  try{
+    const r=await fetch(`/api/campaigns/${activeCampaign}/search`,{method:'POST'});
+    const x=await r.json();
+    if(!r.ok)throw new Error(x.message||x.error||'Suche fehlgeschlagen');
+    alert(`${x.imported} Fälle gefunden · Modus: ${x.mode}`);
+    state();
+  }catch(e){alert(e.message)}finally{b.disabled=false;b.textContent='Fälle suchen'}
 };
 document.querySelector('#demo').onclick=async()=>{const d=await fetch('/api/demo',{method:'POST'}).then(r=>r.json());activeCampaign=d.campaign.id;state()};
 document.querySelector('#import').onclick=async()=>{
