@@ -24,7 +24,9 @@ export function importRows(rows, campaign) {
       rating,
       text,
       url: norm(row.reviewUrl),
-      author: norm(row.reviewAuthor)
+      author: norm(row.reviewAuthor),
+      reviewId: norm(row.reviewId),
+      ownerAnswer: norm(row.ownerAnswer)
     };
     const qualification = qualifyReview(review);
 
