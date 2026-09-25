@@ -64,6 +64,18 @@ app.post('/api/campaigns', (req, res) => {
   res.status(201).json(c);
 });
 
+app.delete('/api/campaigns/:id', (req, res) => {
+  const state = readState();
+  const campaign = state.campaigns.find(x => x.id === req.params.id);
+  if (!campaign) return res.status(404).json({ error: 'campaign_not_found' });
+  const caseIds = new Set(state.cases.filter(x => x.campaignId === campaign.id).map(x => x.id));
+  state.orders = state.orders.filter(x => !caseIds.has(x.caseId));
+  state.cases = state.cases.filter(x => x.campaignId !== campaign.id);
+  state.campaigns = state.campaigns.filter(x => x.id !== campaign.id);
+  writeState(state);
+  res.json({ ok: true });
+});
+
 app.post('/api/campaigns/:id/search', async (req, res) => {
   const state = readState();
   const c = state.campaigns.find(x => x.id === req.params.id);
