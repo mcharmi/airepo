@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { readState, writeState, id } from './store.js';
 import { importRows } from './importer.js';
 import { buildOutreachDraft } from './qualifier.js';
+import { searchDataForSeo } from './dataforseo.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -60,6 +61,29 @@ app.post('/api/campaigns', (req, res) => {
   state.campaigns.push(c);
   writeState(state);
   res.status(201).json(c);
+});
+
+app.post('/api/campaigns/:id/search', async (req, res) => {
+  const state = readState();
+  const c = state.campaigns.find(x => x.id === req.params.id);
+  if (!c) return res.status(404).json({ error: 'campaign_not_found' });
+  try {
+    const rows = await searchDataForSeo(c);
+    const cases = importRows(rows, c);
+    const eligible = cases.filter(x => !x.review.ownerAnswer);
+    state.cases.push(...eligible);
+    writeState(state);
+    res.json({
+      mode: process.env.DATAFORSEO_MODE || 'live',
+      imported: eligible.length,
+      candidates: eligible.filter(x => x.status === 'needs_review').length,
+      ignoredOwnerAnswered: cases.length - eligible.length,
+      cases: eligible
+    });
+  } catch (error) {
+    console.error('DataForSEO search failed', error);
+    res.status(502).json({ error: 'dataforseo_search_failed', message: error.message });
+  }
 });
 
 app.post('/api/campaigns/:id/import', (req, res) => {
