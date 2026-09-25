@@ -58,20 +58,15 @@ function reviewToFields(x) {
 
 export async function searchDataForSeo(campaign) {
   if (process.env.DATAFORSEO_MODE === 'sandbox') {
-    const reviews = await request('/business_data/google/reviews/task_get/00000000-0000-0000-0000-000000000000');
-    const reviewItems = itemsFrom(reviews);
+    // Deterministic fixtures: exercise filters and the full UI flow without paid API calls.
     const maxStars = Number(campaign.reviewFilters?.maxStars || 2);
-    return reviewItems
-      .map((r, i) => ({
-        businessName: r.title || ('DataForSEO Sandbox Unternehmen ' + (i + 1)),
-        website: r.domain || 'https://example.com',
-        email: r.email || ('kontakt' + (i + 1) + '@example.com'),
-        profileRating: Number(r.rating?.value || 4.5),
-        totalReviews: Number(r.reviews_count || 10),
-        placeId: r.place_id || '',
-        ...reviewToFields(r)
-      }))
-      .filter(x => x.rating > 0 && x.rating <= maxStars && !x.ownerAnswer);
+    const fixtures = [
+      { businessName: 'Sandbox Zahnarzt Beispiel', website: 'https://example.com', email: 'kontakt@example.com', phone: '+49 431 000001', address: 'Beispielstraße 1, Kiel', profileUrl: 'https://www.google.com/maps', profileRating: 4.6, totalReviews: 87, placeId: 'sandbox_place_1', rating: 1, text: 'Ich war nie Kunde dieses Unternehmens und kann die Leistung nicht beurteilen.', reviewUrl: 'https://www.google.com/maps/reviews/sandbox-1', reviewAuthor: 'Test Nutzer 1', reviewId: 'sandbox_review_1', ownerAnswer: '' },
+      { businessName: 'Sandbox Praxis Beispiel', website: 'https://example.org', email: 'info@example.org', phone: '+49 431 000002', address: 'Musterweg 2, Kiel', profileUrl: 'https://www.google.com/maps', profileRating: 4.3, totalReviews: 42, placeId: 'sandbox_place_2', rating: 2, text: 'Abzocke. Nie wieder. Keine weiteren Angaben.', reviewUrl: 'https://www.google.com/maps/reviews/sandbox-2', reviewAuthor: 'Test Nutzer 2', reviewId: 'sandbox_review_2', ownerAnswer: '' },
+      { businessName: 'Sandbox Mit Antwort', website: 'https://example.net', email: 'mail@example.net', profileRating: 4.7, totalReviews: 61, placeId: 'sandbox_place_3', rating: 1, text: 'Sehr schlechte Erfahrung.', reviewUrl: 'https://www.google.com/maps/reviews/sandbox-3', reviewAuthor: 'Test Nutzer 3', reviewId: 'sandbox_review_3', ownerAnswer: 'Vielen Dank für Ihr Feedback.' },
+      { businessName: 'Sandbox Gute Bewertung', website: 'https://example.edu', email: 'mail@example.edu', profileRating: 4.8, totalReviews: 100, placeId: 'sandbox_place_4', rating: 5, text: 'Alles bestens.', reviewUrl: 'https://www.google.com/maps/reviews/sandbox-4', reviewAuthor: 'Test Nutzer 4', reviewId: 'sandbox_review_4', ownerAnswer: '' }
+    ];
+    return fixtures.filter(x => x.rating <= maxStars && !x.ownerAnswer);
   }
 
   const payload = [{
