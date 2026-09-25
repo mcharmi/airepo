@@ -15,7 +15,7 @@ async function bootstrap(){
   console.log('Instantly bootstrap starting');
   const campaign=await createCampaign({
    name:'Mediaquadrat Reputation Management',
-   campaign_schedule:{schedules:[{name:'Werktags',timing:{from:'09:00',to:'17:00'},days:{'0':false,'1':true,'2':true,'3':true,'4':true,'5':true,'6':false},timezone:'America/New_York'}]},
+   campaign_schedule:{schedules:[{name:'Werktags',timing:{from:'09:00',to:'17:00'},days:{'0':false,'1':true,'2':true,'3':true,'4':true,'5':true,'6':false},timezone:'America/Chicago'}]},
    sequences:[{steps:[
     {type:'email',delay:0,variants:[{subject:'Ihre Google-Bewertung',body:'{{personalization}}'}]},
     {type:'email',delay:3,variants:[{subject:'Re: Ihre Google-Bewertung',body:'Guten Tag,\n\nich wollte kurz nachfragen, ob Sie meine Nachricht zur angesprochenen Google-Bewertung gesehen haben. Kosten entstehen nur im Erfolgsfall.\n\nFreundliche Grüße\nChristopher Kühn\nMediaquadrat'}]},
