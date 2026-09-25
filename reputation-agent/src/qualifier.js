@@ -36,23 +36,39 @@ export function qualifyReview(review = {}) {
 }
 
 export function buildOutreachDraft({ business, review, caseId, orderUrl }) {
-  const excerpt = String(review.text || '').trim().slice(0, 400);
+  const excerpt = String(review.text || '').trim().slice(0, 600);
+  const stars = Number(review.rating || 0);
+
   return {
-    subject: `Hinweis zu einer Google-Bewertung bei ${business.name}`,
+    subject: 'Hinweis zu einer Bewertung Ihres Google-Profils',
     text: `Guten Tag,
 
-bei Ihrem Google-Unternehmensprofil ist uns folgende Bewertung aufgefallen:
+bei einer Prüfung Ihres Google-Unternehmensprofils ist uns folgende negative Bewertung aufgefallen:
 
 „${excerpt}“
+${stars ? stars + ' von 5 Sternen' : ''}
 
-Nach einer ersten technischen Vorprüfung kann eine genauere Prüfung sinnvoll sein. Eine Entfernung kann nicht garantiert werden und hängt von den Richtlinien bzw. der rechtlichen Prüfung sowie der Entscheidung von Google ab.
+Google-Bewertungen prägen maßgeblich den ersten Eindruck potenzieller Kunden. Gerade eine einzelne negative Bewertung kann dabei überproportional auffallen und Interessenten bereits vor der ersten Kontaktaufnahme beeinflussen.
 
-Wir übernehmen nach Beauftragung die Prüfung und das zulässige Entfernungsverfahren. Das Honorar beträgt 79,00 EUR netto und fällt nur an, wenn genau diese Bewertung erfolgreich entfernt wird.
+Wir sind eine Agentur mit Unternehmenssitz in Kiel und auf Reputationsmanagement und IT-Sicherheit spezialisiert. Wir haben bereits mehrere tausend unberechtigte Negativbewertungen für Unternehmen erfolgreich entfernen lassen.
 
-Auftrag und Vollmacht: ${orderUrl}
+Bei der oben genannten Bewertung sehen wir nach erster Prüfung konkrete Ansatzpunkte, die eine Entfernung ermöglichen könnten. Gemeinsam mit unserem Rechtsexperten können wir die weitere Prüfung und das vollständige Vorgehen gegenüber Google für Sie übernehmen.
 
-Fall-ID: ${caseId}
+Für Sie entsteht dabei kein Kostenrisiko: Wir berechnen 79 € netto ausschließlich bei erfolgreicher Entfernung. Bleibt die Bewertung bestehen, zahlen Sie nichts. Sie haben außerdem einen direkten Ansprechpartner bei uns und müssen sich um die weitere Abwicklung nicht kümmern.
 
-Freundliche Grüße`
+Wenn Sie die Bewertung prüfen und entfernen lassen möchten:
+${orderUrl}
+
+Die Beauftragung dauert nur wenige Minuten. Anschließend übernehmen wir den Fall.
+
+Falls Sie für das Google-Unternehmensprofil nicht selbst verantwortlich sind, leiten Sie diese Nachricht bitte kurz an die Geschäftsführung oder die zuständige Person weiter.
+
+Freundliche Grüße,
+Christopher Kühn
+Mediaquadrat
+Reputationsmanagement & IT-Sicherheit
+24106 Kiel
+
+Fall-ID: ${caseId}`
   };
 }
