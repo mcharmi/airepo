@@ -38,3 +38,30 @@ export async function addLead({ email, companyName, website, phone, personalizat
     })
   });
 }
+
+
+export async function createCampaignDraft(name = 'Mediaquadrat Reputation Management') {
+  return call('/campaigns', {
+    method: 'POST',
+    body: JSON.stringify({
+      name,
+      campaign_schedule: {
+        schedules: [{
+          name: 'Werktags',
+          timing: { from: '09:00', to: '17:00' },
+          days: { '0': false, '1': true, '2': true, '3': true, '4': true, '5': true, '6': false },
+          timezone: 'Europe/Berlin'
+        }]
+      },
+      email_gap: 10,
+      daily_limit: 25,
+      daily_max_leads: 25,
+      stop_on_reply: true,
+      stop_on_auto_reply: false,
+      text_only: true,
+      open_tracking: false,
+      link_tracking: false,
+      allow_risky_contacts: false
+    })
+  });
+}
