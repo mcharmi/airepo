@@ -38,7 +38,7 @@ const defaultCampaign = {
 };
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'reputation-agent', version: '0.6.0' });
+  res.json({ ok: true, service: 'reputation-agent', version: '0.7.0' });
 });
 
 app.get('/api/state', (_req, res) => res.json(readState()));
@@ -116,76 +116,35 @@ app.post('/api/campaigns/:id/import', (req, res) => {
   });
 });
 
-app.post('/api/cases/:id/approve-outreach', (req, res) => {
+app.post('/api/cases/:id/contact', async (req, res) => {
   const state = readState();
   const c = state.cases.find(x => x.id === req.params.id);
   if (!c) return res.status(404).json({ error: 'case_not_found' });
   if (!c.review.qualification.candidate) return res.status(409).json({ error: 'case_not_candidate' });
-
-  c.outreachApproved = true;
-  c.status = 'outreach_approved';
-  c.approvedAt = new Date().toISOString();
-
-  const campaign = state.campaigns.find(x => x.id === c.campaignId);
-  const order = {
-    id: id('ord'),
-    caseId: c.id,
-    token: id('tok'),
-    status: 'pending',
-    priceNetEur: campaign?.priceNetEur ?? 79,
-    billingModel: 'success_only',
-    createdAt: new Date().toISOString()
-  };
-
-  state.orders.push(order);
-  c.orderId = order.id;
-  c.outreachDraft = buildOutreachDraft({
-    business: c.business,
-    review: c.review,
-    caseId: c.id,
-    orderUrl: `${baseUrl()}/order.html?token=${encodeURIComponent(order.token)}`
-  });
-
-  writeState(state);
-  res.json({ case: c, order, draft: c.outreachDraft });
-});
-
-app.post('/api/cases/:id/send-outreach', async (req, res) => {
-  const state = readState();
-  const c = state.cases.find(x => x.id === req.params.id);
-  if (!c) return res.status(404).json({ error: 'case_not_found' });
-  if (!c.outreachApproved || !c.outreachDraft) return res.status(409).json({ error: 'outreach_not_approved' });
   if (!c.business.email) return res.status(409).json({ error: 'recipient_email_missing' });
   if (!instantlyConfigured()) return res.status(503).json({ error: 'instantly_not_configured' });
-  const order = state.orders.find(x => x.id === c.orderId);
   const campaign = state.campaigns.find(x => x.id === c.campaignId);
+  let order = state.orders.find(x => x.caseId === c.id);
+  if (!order) {
+    order = {id:id('ord'),caseId:c.id,token:id('tok'),status:'pending',priceNetEur:campaign?.priceNetEur??79,billingModel:'success_only',createdAt:new Date().toISOString()};
+    state.orders.push(order);
+  }
+  const orderUrl=`${baseUrl()}/order.html?token=${encodeURIComponent(order.token)}`;
   try {
     const lead = await addLead({
-      email: c.business.email,
-      companyName: c.business.name,
-      website: c.business.website,
-      phone: c.business.phone,
-      personalization: c.outreachDraft.text,
-      payload: {
-        case_id: c.id,
-        review_id: c.review.reviewId || '',
-        review_url: c.review.url || '',
-        review_text: c.review.text || '',
-        review_stars: c.review.rating || '',
-        google_place_id: c.business.placeId || '',
-        profile_rating: c.business.profileRating || '',
-        profile_review_count: c.business.totalReviews || '',
-        order_url: order ? `${baseUrl()}/order.html?token=${encodeURIComponent(order.token)}` : '',
-        price_net_eur: order?.priceNetEur ?? campaign?.priceNetEur ?? 79
+      email:c.business.email,companyName:c.business.name,website:c.business.website,phone:c.business.phone,
+      payload:{
+        case_id:c.id,review_id:c.review.reviewId||'',review_url:c.review.url||'',review_text:c.review.text||'',
+        review_stars:c.review.rating||'',google_place_id:c.business.placeId||'',profile_rating:c.business.profileRating||'',
+        profile_review_count:c.business.totalReviews||'',order_url:orderUrl,price_net_eur:order.priceNetEur
       }
     });
-    c.status = 'outreach_sent_to_instantly';
-    c.instantly = { leadId: lead.id || null, addedAt: new Date().toISOString() };
+    c.status='sent_to_instantly'; c.orderId=order.id; c.instantly={leadId:lead.id||null,addedAt:new Date().toISOString()};
     writeState(state);
-    res.json({ ok: true, case: c, instantly: c.instantly });
-  } catch (error) {
-    console.error('Instantly lead transfer failed', error);
-    res.status(502).json({ error: 'instantly_lead_transfer_failed', message: error.message });
+    res.json({ok:true,case:c,instantly:c.instantly});
+  } catch(error) {
+    console.error('Instantly lead transfer failed:', error.message, error);
+    res.status(502).json({error:'instantly_lead_transfer_failed',message:error.message});
   }
 });
 
