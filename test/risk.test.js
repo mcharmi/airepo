@@ -162,3 +162,42 @@ test("reviews finite EIP-2612 permit", () => {
   assert.equal(r.action, "EIP2612_PERMIT");
   assert.equal(r.verdict, "REVIEW");
 });
+
+
+test("blocks ERC20 transfer with an extra ABI word", () => {
+  const data = "0xa9059cbb" + padAddress(RECIPIENT) + padUint(123) + padUint(0);
+  const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" });
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.flags.includes("MALFORMED_CALLDATA"), true);
+});
+
+test("blocks ERC20 approval with an extra ABI word", () => {
+  const data = "0x095ea7b3" + padAddress(SPENDER) + padUint(1) + padUint(0);
+  const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" });
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.flags.includes("MALFORMED_CALLDATA"), true);
+});
+
+test("blocks setApprovalForAll with an extra ABI word", () => {
+  const data = "0xa22cb465" + padAddress(SPENDER) + padUint(1) + padUint(0);
+  const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" });
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.flags.includes("MALFORMED_CALLDATA"), true);
+});
+
+test("blocks EIP-2612 permit with an extra ABI word", () => {
+  const owner = "4444444444444444444444444444444444444444";
+  const data =
+    "0xd505accf" +
+    padAddress(owner) +
+    padAddress(SPENDER) +
+    padUint(1000) +
+    padUint(9999999999) +
+    padUint(27) +
+    "0".repeat(64) +
+    "0".repeat(64) +
+    padUint(0);
+  const r = analyzeTransaction({ chain: "base", to: TO, data, value: "0" });
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.flags.includes("MALFORMED_CALLDATA"), true);
+});
