@@ -6,6 +6,12 @@ const SELECTORS = {
 };
 
 const MAX_UINT256 = (1n << 256n) - 1n;
+const FIXED_CALLDATA_LENGTH = {
+  [SELECTORS.ERC20_TRANSFER]: 8 + 2 * 64,
+  [SELECTORS.ERC20_APPROVE]: 8 + 2 * 64,
+  [SELECTORS.SET_APPROVAL_FOR_ALL]: 8 + 2 * 64,
+  [SELECTORS.EIP2612_PERMIT]: 8 + 7 * 64
+};
 
 function strip0x(v = "") {
   return v.startsWith("0x") ? v.slice(2) : v;
@@ -120,6 +126,10 @@ export function analyzeTransaction(tx, sanctions = new Set()) {
   const selector = data.slice(0, 8);
 
   try {
+    const expectedLength = FIXED_CALLDATA_LENGTH[selector];
+    if (expectedLength !== undefined && data.length !== expectedLength) {
+      throw new Error("unexpected calldata length");
+    }
     if (selector === SELECTORS.ERC20_TRANSFER) {
       result.action = "ERC20_TRANSFER";
       result.recipient = asAddress(word(data, 0));
@@ -154,9 +164,6 @@ export function analyzeTransaction(tx, sanctions = new Set()) {
     if (selector === SELECTORS.EIP2612_PERMIT) {
       result.action = "EIP2612_PERMIT";
       // permit(owner, spender, value, deadline, v, r, s)
-      if (data.length < 8 + 7 * 64) {
-        throw new Error("malformed permit");
-      }
       result.spender = asAddress(word(data, 1));
       const amount = asUint(word(data, 2));
       result.amount = amount.toString();
