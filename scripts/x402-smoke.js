@@ -39,12 +39,14 @@ const sanctionsTarget = (process.env.X402_SANCTIONS_SMOKE_TO || "").trim();
 const payload = sanctionsTarget
   ? {
       chain: "base",
+      from: signer.address,
       to: sanctionsTarget,
       data: "0x",
       value: "1"
     }
   : {
       chain: "base",
+      from: signer.address,
       to: "0x1111111111111111111111111111111111111111",
       data: "0x095ea7b30000000000000000000000002222222222222222222222222222222222222222ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       value: "0"
@@ -93,8 +95,12 @@ if (response.status !== 200) {
       parsed.flags?.includes("SANCTIONS_MATCH")
     : parsed.verdict === "BLOCK" && parsed.action === "ERC20_APPROVE";
 
-  if (!valid) {
-    console.error("Unexpected risk decision from paid endpoint");
+  const simulationValid =
+    process.env.EXPECT_SIMULATION !== "true" ||
+    parsed.simulation?.attempted === true;
+
+  if (!valid || !simulationValid) {
+    console.error("Unexpected risk decision or missing simulation from paid endpoint");
     process.exitCode = 1;
   } else {
     console.log(
