@@ -26,7 +26,7 @@ const publicBaseUrl =
   process.env.PUBLIC_BASE_URL ||
   "https://agent-sign-guard-main-production.up.railway.app";
 const serviceDescription =
-  "Pre-sign EVM transaction risk API for AI agents on Base. Detects ERC20 approvals, unlimited approvals, Permit2 permissions and transfers, OFAC SDN EVM address matches, malformed calldata, and adds current-state EVM simulation before signing.";
+  "Call before signing or broadcasting a Base transaction. TxPreflight returns a deterministic ALLOW, REVIEW, or BLOCK decision for unsigned EVM transactions, with ERC20/Permit2 approval analysis, direct OFAC SDN EVM screening, malformed-calldata detection, and current-state Base simulation.";
 
 const bazaarDiscovery = declareDiscoveryExtension({
   bodyType: "json",
@@ -47,7 +47,7 @@ const bazaarDiscovery = declareDiscoveryExtension({
       from: {
         type: "string",
         description:
-          "Optional EVM sender address. Supplying it improves current-state simulation accuracy."
+          "Optional EVM sender address. Strongly recommended: improves sanctions screening and current-state simulation accuracy."
       },
       to: {
         type: "string",
@@ -80,7 +80,7 @@ const bazaarDiscovery = declareDiscoveryExtension({
       simulation: {
         attempted: true,
         success: true,
-        network: "base-sepolia",
+        network: "base",
         from_assumed: false,
         gas_estimate: "23697"
       }
@@ -307,9 +307,9 @@ app.get("/openapi.json", (_req, res) => {
       "/risk-check": {
         post: {
           operationId: "screenEvmTransactionBeforeSigning",
-          summary: "Screen an unsigned Base EVM transaction before signing",
+          summary: "Call before signing or broadcasting an unsigned Base transaction",
           description:
-            "Returns a deterministic ALLOW, REVIEW or BLOCK decision with decoded approval/Permit2 risk, OFAC SDN direct-address screening, and optional current-state EVM simulation. Access is paid via x402.",
+            "Use this endpoint as a pre-sign guard for autonomous transaction execution. Returns deterministic ALLOW, REVIEW, or BLOCK with decoded approval/Permit2 risk, direct OFAC SDN EVM screening, and current-state Base simulation. For autonomous policy: ALLOW may continue; REVIEW should pause for additional policy or review; BLOCK should not be signed automatically. Access is paid via x402.",
           tags: ["EVM Security", "Transaction Risk", "AI Agents", "Base", "x402"],
           requestBody: {
             required: true,
@@ -403,52 +403,45 @@ app.get("/openapi.json", (_req, res) => {
 app.get("/llms.txt", (_req, res) => {
   res.type("text/plain").send(`# TxPreflight
 
-> Pre-sign EVM transaction risk API for AI agents, autonomous wallets, and agentic payment systems on Base.
+> Pre-sign transaction risk API for autonomous agents on Base Mainnet.
 
-TxPreflight helps an AI agent decide whether an unsigned EVM transaction should be ALLOWed, REVIEWed, or BLOCKed before signing.
+## When to call
+Call TxPreflight immediately before signing or broadcasting an unsigned Base transaction when your agent is about to transfer value, approve token spending, grant or use Permit2 permissions, call setApprovalForAll, interact with third-party calldata, or execute a transaction proposed by another app, tool, contract, or agent.
 
-## Primary endpoint
-- POST ${publicBaseUrl}/risk-check
-- Payment: x402
-- Price: ${process.env.X402_PRICE || "$0.01"}
-- Network: Base Sepolia during testing; Base mainnet only when explicitly enabled.
-- Content-Type: application/json
+## Endpoint
+POST ${publicBaseUrl}/risk-check
+Payment: x402
+Price: ${process.env.X402_PRICE || "$0.01"} USDC
+Payment network: ${requestedEnvironment === "production" ? "Base Mainnet (eip155:8453)" : "Base Sepolia (eip155:84532)"}
+Content-Type: application/json
 
-## Inputs
+## Input
 Required: chain, to, data, value.
-Optional: from. Supplying from improves EVM simulation accuracy.
+Optional but strongly recommended: from.
 
-Example:
 ${JSON.stringify(publicExample, null, 2)}
 
-## Capabilities
-- EVM transaction risk API
-- pre-sign transaction security screening
-- Base transaction risk analysis
-- ERC20 transfer decoding
-- ERC20 approval risk detection
-- unlimited token approval detection
-- setApprovalForAll detection
-- Uniswap Permit2 approval and transfer analysis
-- Permit2 signature transfer analysis
-- OFAC SDN EVM address screening
-- malformed calldata detection
-- unknown function selector review
-- Base EVM eth_call simulation
-- Base gas estimation
-- x402 paid API for autonomous agents
+## Agent policy
+- ALLOW: no configured rule requires intervention; continue only if your own policy also allows it.
+- REVIEW: pause autonomous signing and apply additional policy or human/agent review.
+- BLOCK: do not sign automatically.
+
+## Detects
+ERC20 transfers and approvals; unlimited approvals; setApprovalForAll; EIP-2612; canonical Uniswap Permit2 allowance/signature/witness transfers; malformed calldata; unknown selectors; direct OFAC SDN EVM-address matches; Base eth_call simulation; gas estimation.
 
 ## Output
-Structured JSON with verdict (ALLOW, REVIEW, BLOCK), risk_score, action, decoded actors/amounts, flags, reasons, sanctions signal, and optional simulation result.
+JSON fields include verdict, risk_score, action, to, spender, recipient, amount, token, permit2, permit2_entries, unlimited_approval, sanctioned_match, flags, reasons, and simulation.
 
-## Important limitations
-A non-match is not a legal sanctions clearance. Unknown or unsupported contract behavior may require additional review. The service never claims that an address is absolutely safe or a scam.
+## Important semantics
+ALLOW does not mean guaranteed safe.
+BLOCK is a deterministic policy result, not an allegation of fraud.
+A sanctions non-match is not legal clearance.
 
 ## Discovery
-- OpenAPI: ${publicBaseUrl}/openapi.json\n- x402 manifest: ${publicBaseUrl}/.well-known/x402
-- Transparency: ${publicBaseUrl}/transparency
-- Health: ${publicBaseUrl}/health
-- Metrics: ${publicBaseUrl}/metrics
+OpenAPI: ${publicBaseUrl}/openapi.json
+x402 manifest: ${publicBaseUrl}/.well-known/x402
+Transparency: ${publicBaseUrl}/transparency
+Health: ${publicBaseUrl}/health
 `);
 });
 
@@ -506,6 +499,18 @@ app.get("/.well-known/x402", (_req, res) => {
       "permit2",
       "x402"
     ],
+    when_to_call: [
+      "immediately before signing or broadcasting an unsigned Base transaction",
+      "before ERC20 approvals or token transfers",
+      "before Permit2 permission or transfer execution",
+      "before setApprovalForAll",
+      "before executing calldata proposed by another app, tool, contract, or agent"
+    ],
+    agent_policy: {
+      ALLOW: "No configured rule requires intervention; continue only if local policy also allows.",
+      REVIEW: "Pause autonomous signing and apply additional policy or review.",
+      BLOCK: "Do not sign automatically."
+    },
     capabilities: [
       "pre-sign transaction screening",
       "ERC20 approval risk",
