@@ -95,6 +95,16 @@ export function analyzeTransaction(tx, sanctions = new Set()) {
 
   result.to = tx.to.toLowerCase();
 
+  const from =
+    typeof tx.from === "string" && /^0x[0-9a-fA-F]{40}$/.test(tx.from)
+      ? tx.from.toLowerCase()
+      : null;
+
+  if (from && sanctions.has(from)) {
+    result.sanctioned_match = true;
+    raise(result, 100, "BLOCK", "SANCTIONS_MATCH", "Sender matches configured sanctions data");
+  }
+
   if (sanctions.has(result.to)) {
     result.sanctioned_match = true;
     raise(result, 100, "BLOCK", "SANCTIONS_MATCH", "Destination matches configured sanctions data");
@@ -138,22 +148,28 @@ export function analyzeTransaction(tx, sanctions = new Set()) {
       result.action = "PERMIT2_UNKNOWN";
       raise(
         result,
-        40,
-        "REVIEW",
-        "UNKNOWN_PERMIT2_CALL",
-        "Call targets canonical Permit2 but the method is not covered by the decoder"
+        90,
+        "BLOCK",
+        "MALFORMED_PERMIT2_CALL",
+        "Call targets canonical Permit2 but calldata could not be decoded safely"
       );
       return result;
     }
 
     result.action = permit2.action;
-    result.spender = permit2.spender || null;
+    result.spender =
+      permit2.spender ||
+      (permit2.action?.startsWith("PERMIT2_SIGNATURE_TRANSFER") ||
+      permit2.action?.startsWith("PERMIT2_WITNESS_TRANSFER")
+        ? from
+        : null);
     result.recipient = permit2.recipient || null;
     result.amount = permit2.amount || null;
     result.token = permit2.token || null;
     result.permit2_entries = permit2.entries || [];
 
     const involved = new Set([
+      from,
       permit2.owner,
       permit2.spender,
       permit2.recipient,
