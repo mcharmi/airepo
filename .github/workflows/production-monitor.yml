@@ -60,3 +60,31 @@ jobs:
           curl --fail --silent --show-error --max-time 15 \
             https://agent-sign-guard-main-production.up.railway.app/transparency \
             > /dev/null
+
+      - name: Check x402 Bazaar metadata
+        run: |
+          curl --silent --show-error --max-time 15 -D /tmp/headers.txt -o /tmp/body.txt \
+            -X POST https://agent-sign-guard-main-production.up.railway.app/risk-check \
+            -H 'content-type: application/json' \
+            --data '{"chain":"base","to":"0x1111111111111111111111111111111111111111","data":"0x","value":"0"}'
+          STATUS=$(awk 'toupper($1) ~ /^HTTP/ {code=$2} END {print code}' /tmp/headers.txt)
+          test "$STATUS" = "402"
+          HEADER=$(awk 'BEGIN{IGNORECASE=1} /^payment-required:/ {sub(/^[^:]+:[[:space:]]*/, ""); gsub(/\r/, ""); print; exit}' /tmp/headers.txt)
+          test -n "$HEADER"
+          node -e '
+            const raw = Buffer.from(process.argv[1], "base64").toString("utf8");
+            const body = JSON.parse(raw);
+            if (body.resource?.serviceName !== "Agent Sign Guard") {
+              throw new Error("serviceName missing from x402 resource metadata");
+            }
+            const tags = body.resource?.tags || [];
+            for (const tag of ["evm-security","transaction-risk","base","permit2","x402"]) {
+              if (!tags.includes(tag)) throw new Error("missing x402 tag: " + tag);
+            }
+            if (!body.extensions?.bazaar?.info?.input) {
+              throw new Error("Bazaar input discovery metadata missing");
+            }
+            if (!body.extensions?.bazaar?.info?.output) {
+              throw new Error("Bazaar output discovery metadata missing");
+            }
+          ' "$HEADER"
