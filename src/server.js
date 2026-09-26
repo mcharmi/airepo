@@ -4,6 +4,7 @@ import { analyzeTransaction } from "./risk.js";
 import { loadSanctionsSet, refreshOfacSanctions, getSanctionsStatus } from "./sanctions.js";
 import { createFixedWindowRateLimiter } from "./rate-limit.js";
 import { observeRequest, markRateLimited, getMetricsSnapshot } from "./observability.js";
+import { simulateTransaction } from "./simulation.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -19,6 +20,7 @@ const riskLimiter = createFixedWindowRateLimiter({
   limit: riskRateLimit,
   windowMs: riskRateWindowMs
 });
+const simulationEnabled = process.env.EVM_SIMULATION_ENABLED !== "false";
 
 app.use((req, res, next) => {
   observeRequest(req, res);
@@ -130,6 +132,7 @@ function isSemanticallyValidPayload(body) {
   if (!/^0x[0-9a-fA-F]{40}$/.test(body.to)) return false;
   if (!/^0x([0-9a-fA-F]{2})*$/.test(body.data)) return false;
   if (!/^\d+$/.test(body.value)) return false;
+  if (body.from !== undefined && !/^0x[0-9a-fA-F]{40}$/.test(body.from)) return false;
   try {
     BigInt(body.value);
   } catch {
@@ -150,13 +153,14 @@ app.get("/health", (_req, res) => {
   res.json({
     ok: true,
     service: "agent-sign-guard",
-    version: "0.5.0",
+    version: "0.6.0",
     x402: x402Enabled,
+    simulation: simulationEnabled,
     sanctions: getSanctionsStatus()
   });
 });
 
-app.post("/risk-check", (req, res) => {
+app.post("/risk-check", async (req, res) => {
   if (!isRiskCheckPayload(req.body)) {
     return res.status(400).json({
       error: "INVALID_REQUEST",
@@ -167,12 +171,43 @@ app.post("/risk-check", (req, res) => {
     return res.status(400).json({
       error: "INVALID_REQUEST",
       message:
-        "Invalid transaction fields: chain must be base, to must be 20-byte hex address, data must be hex calldata, value must be non-negative integer string"
+        "Invalid transaction fields: chain must be base, to/from must be 20-byte hex addresses, data must be hex calldata, value must be non-negative integer string"
     });
   }
 
   const sanctions = loadSanctionsSet();
   const result = analyzeTransaction(req.body, sanctions);
+
+  if (simulationEnabled) {
+    const simulation = await simulateTransaction(req.body, {
+      environment: requestedEnvironment
+    });
+    result.simulation = simulation;
+
+    if (
+      simulation.success === false &&
+      simulation.from_assumed === false &&
+      result.verdict === "ALLOW"
+    ) {
+      result.verdict = "REVIEW";
+      result.risk_score = Math.max(result.risk_score, 30);
+      result.flags.push("SIMULATION_REVERTED");
+      result.reasons.push(
+        "Current-state EVM simulation reverted for the supplied sender"
+      );
+    }
+  } else {
+    result.simulation = {
+      attempted: false,
+      success: null,
+      network: null,
+      from_assumed: !req.body.from,
+      gas_estimate: null,
+      return_data: null,
+      error: null
+    };
+  }
+
   return res.json(result);
 });
 
