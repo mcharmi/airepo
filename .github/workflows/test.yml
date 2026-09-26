@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches:
+      - main
       - copilot/determine-risk-decision
 
 jobs:
