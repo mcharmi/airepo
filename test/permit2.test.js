@@ -93,3 +93,50 @@ test("blocks sanctioned recipient in Permit2 transfer", () => {
   assert.equal(r.verdict, "BLOCK");
   assert.equal(r.sanctioned_match, true);
 });
+
+
+test("blocks malformed calldata targeting canonical Permit2", () => {
+  const r = analyzeTransaction({
+    chain: "base",
+    to: PERMIT2_ADDRESS,
+    data: "0x12345678",
+    value: "0"
+  });
+
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.action, "PERMIT2_UNKNOWN");
+  assert.equal(r.flags.includes("MALFORMED_PERMIT2_CALL"), true);
+});
+
+test("screens tx.from as Permit2 signature-transfer spender", () => {
+  const data = encodeFunctionData({
+    abi: PERMIT2_ABI,
+    functionName: "permitTransferFrom",
+    args: [
+      {
+        permitted: { token: TOKEN, amount: 1000n },
+        nonce: 1n,
+        deadline: 9999999999n
+      },
+      {
+        to: RECIPIENT,
+        requestedAmount: 500n
+      },
+      OWNER,
+      "0x1234"
+    ]
+  });
+
+  const sanctions = new Set([SPENDER]);
+  const r = analyzeTransaction({
+    chain: "base",
+    from: SPENDER,
+    to: PERMIT2_ADDRESS,
+    data,
+    value: "0"
+  }, sanctions);
+
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.spender, SPENDER);
+  assert.equal(r.sanctioned_match, true);
+});
