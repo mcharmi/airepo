@@ -162,7 +162,7 @@ test("exposes aggregate metrics without request identities", async () => {
     const res = await fetch(`${baseUrl}/metrics`);
     const body = await res.json();
     assert.equal(res.status, 200);
-    assert.equal(body.service, "agent-sign-guard");
+    assert.equal(body.service, "txpreflight");
     assert.equal(body.version, "0.6.0");
     assert.equal(typeof body.requests_total, "number");
     assert.equal(typeof body.risk_check_requests_total, "number");
@@ -200,7 +200,7 @@ test("serves agent discovery endpoints", async () => {
     const manifest = await fetch(`${baseUrl}/.well-known/x402`);
     assert.equal(manifest.status, 200);
     const body = await manifest.json();
-    assert.equal(body.name, "Agent Sign Guard");
+    assert.equal(body.name, "TxPreflight");
     assert.equal(body.protocol, "x402");
     assert.equal(body.method, "POST");
     assert.equal(body.tags.includes("permit2"), true);
