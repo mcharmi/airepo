@@ -52,15 +52,15 @@ jobs:
           echo "Test receiver: $PAY_TO"
       - name: Start paid API
         run: |
-          npm run dev > /tmp/agent-sign-guard.log 2>&1 &
-          echo $! > /tmp/agent-sign-guard.pid
+          npm run dev > /tmp/txpreflight.log 2>&1 &
+          echo $! > /tmp/txpreflight.pid
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:3000/health >/dev/null; then
               exit 0
             fi
             sleep 2
           done
-          cat /tmp/agent-sign-guard.log
+          cat /tmp/txpreflight.log
           exit 1
       - name: Confirm endpoint requires payment
         run: |
@@ -74,4 +74,4 @@ jobs:
         run: npm run smoke:x402
       - name: Server log
         if: always()
-        run: cat /tmp/agent-sign-guard.log || true
+        run: cat /tmp/txpreflight.log || true
