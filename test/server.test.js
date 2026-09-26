@@ -172,3 +172,42 @@ test("exposes aggregate metrics without request identities", async () => {
     assert.equal("wallet" in body, false);
   });
 });
+
+
+test("serves agent discovery endpoints", async () => {
+  await withServer(async baseUrl => {
+    const llms = await fetch(`${baseUrl}/llms.txt`);
+    assert.equal(llms.status, 200);
+    assert.match(await llms.text(), /EVM transaction risk API/i);
+
+    const robots = await fetch(`${baseUrl}/robots.txt`);
+    assert.equal(robots.status, 200);
+    assert.match(await robots.text(), /Sitemap:/);
+
+    const sitemap = await fetch(`${baseUrl}/sitemap.xml`);
+    assert.equal(sitemap.status, 200);
+    assert.match(await sitemap.text(), /<urlset/);
+
+    const manifest = await fetch(`${baseUrl}/.well-known/x402`);
+    assert.equal(manifest.status, 200);
+    const body = await manifest.json();
+    assert.equal(body.name, "Agent Sign Guard");
+    assert.equal(body.protocol, "x402");
+    assert.equal(body.method, "POST");
+    assert.equal(body.tags.includes("permit2"), true);
+
+    const transparency = await fetch(`${baseUrl}/transparency`);
+    assert.equal(transparency.status, 200);
+    const transparencyBody = await transparency.json();
+    assert.equal(transparencyBody.llm_in_decision_path, false);
+  });
+});
+
+test("does not falsely claim A2A compatibility", async () => {
+  await withServer(async baseUrl => {
+    const res = await fetch(`${baseUrl}/.well-known/agent-card.json`);
+    assert.equal(res.status, 404);
+    const body = await res.json();
+    assert.equal(body.error, "NOT_A2A_SERVER");
+  });
+});
