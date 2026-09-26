@@ -1,5 +1,5 @@
 {
-  "name": "agent-sign-guard",
+  "name": "txpreflight",
   "version": "0.6.0",
   "private": true,
   "type": "module",
