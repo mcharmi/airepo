@@ -37,7 +37,7 @@ export function markRateLimited() {
 
 export function getMetricsSnapshot({ limiterEntries = 0 } = {}) {
   return {
-    service: "agent-sign-guard",
+    service: "txpreflight",
     version: "0.6.0",
     uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
     requests_total: counters.requests_total,
