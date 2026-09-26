@@ -170,6 +170,21 @@ if (x402Enabled) {
       evm: payTo
     },
     routes: {
+      "GET /pay-test": {
+        accepts: [
+          {
+            scheme: "exact",
+            price: process.env.X402_PRICE || "$0.01",
+            network,
+            payTo: ""
+          }
+        ],
+        resource: `${publicBaseUrl}/pay-test`,
+        description: "TxPreflight live x402 payment test. Charges exactly $0.01 USDC on Base and confirms settlement.",
+        mimeType: "text/html",
+        serviceName: "TxPreflight",
+        tags: ["x402", "payment-test", "base", "usdc"]
+      },
       "POST /risk-check": {
         accepts: [
           {
@@ -195,12 +210,21 @@ if (x402Enabled) {
     }
   });
 
-  app.use(paymentMiddlewareFromHTTPServer(x402Server));
+  app.use(
+    paymentMiddlewareFromHTTPServer(x402Server, {
+      appName: "TxPreflight",
+      testnet: environment !== "production"
+    })
+  );
 
   console.log(
     `x402 enabled (${environment}, ${network}); payments received at ${payTo}`
   );
 }
+
+app.get("/pay-test", (_req, res) => {
+  res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TxPreflight payment successful</title></head><body><main><h1>Payment successful</h1><p>The $0.01 USDC x402 Mainnet payment was accepted and settled.</p><p><a href="/">Back to TxPreflight</a></p></main></body></html>`);
+});
 
 app.use(express.json({ limit: "64kb" }));
 app.use((err, _req, res, next) => {
