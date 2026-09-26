@@ -155,3 +155,20 @@ test("returns block verdict for unlimited approval payload", async () => {
     assert.equal(body.action, "ERC20_APPROVE");
   });
 });
+
+
+test("exposes aggregate metrics without request identities", async () => {
+  await withServer(async baseUrl => {
+    const res = await fetch(`${baseUrl}/metrics`);
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(body.service, "agent-sign-guard");
+    assert.equal(body.version, "0.5.0");
+    assert.equal(typeof body.requests_total, "number");
+    assert.equal(typeof body.risk_check_requests_total, "number");
+    assert.equal(typeof body.rate_limited_total, "number");
+    assert.equal(typeof body.responses_by_status, "object");
+    assert.equal("ip" in body, false);
+    assert.equal("wallet" in body, false);
+  });
+});
