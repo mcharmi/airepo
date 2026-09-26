@@ -24,7 +24,7 @@ const riskLimiter = createFixedWindowRateLimiter({
 const simulationEnabled = process.env.EVM_SIMULATION_ENABLED === "true";
 const publicBaseUrl =
   process.env.PUBLIC_BASE_URL ||
-  "https://txpreflight-main-production.up.railway.app";
+  "https://agent-sign-guard-main-production.up.railway.app";
 const serviceDescription =
   "Pre-sign EVM transaction risk API for AI agents on Base. Detects ERC20 approvals, unlimited approvals, Permit2 permissions and transfers, OFAC SDN EVM address matches, malformed calldata, and adds current-state EVM simulation before signing.";
 
