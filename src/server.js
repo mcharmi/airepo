@@ -20,7 +20,7 @@ const riskLimiter = createFixedWindowRateLimiter({
   limit: riskRateLimit,
   windowMs: riskRateWindowMs
 });
-const simulationEnabled = process.env.EVM_SIMULATION_ENABLED !== "false";
+const simulationEnabled = process.env.EVM_SIMULATION_ENABLED === "true";
 
 app.use((req, res, next) => {
   observeRequest(req, res);
