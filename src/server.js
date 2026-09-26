@@ -462,7 +462,8 @@ Sitemap: ${publicBaseUrl}/sitemap.xml
 app.get("/sitemap.xml", (_req, res) => {
   const urls = [
     "/",
-    "/llms.txt",\n    "/openapi.json",
+    "/llms.txt",
+    "/openapi.json",
     "/.well-known/x402",
     "/transparency",
     "/.well-known/security.txt"
