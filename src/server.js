@@ -53,7 +53,7 @@ if (x402Enabled) {
           }
         ],
         description:
-          "Deterministic pre-sign risk screening for unsigned Base EVM transactions. Detects ERC20 transfers, token approvals, unlimited approvals, setApprovalForAll, malformed calldata and configured sanctions matches. Returns machine-readable ALLOW, REVIEW or BLOCK."
+          "Deterministic pre-sign risk screening for unsigned Base EVM transactions. Detects ERC20 transfers, token approvals, unlimited approvals, setApprovalForAll, malformed calldata and OFAC SDN and configured address matches. Returns machine-readable ALLOW, REVIEW or BLOCK."
       }
     }
   });
@@ -104,7 +104,7 @@ app.get("/health", (_req, res) => {
   res.json({
     ok: true,
     service: "agent-sign-guard",
-    version: "0.3.0",
+    version: "0.4.0",
     x402: x402Enabled,
     sanctions: getSanctionsStatus()
   });
