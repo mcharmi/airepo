@@ -64,7 +64,7 @@ test("returns 400 for semantically invalid transaction payload", async () => {
     assert.equal(body.error, "INVALID_REQUEST");
     assert.equal(
       body.message,
-      "Invalid transaction fields: chain must be base, to must be 20-byte hex address, data must be hex calldata, value must be non-negative integer string"
+      "Invalid transaction fields: chain must be base, to/from must be 20-byte hex addresses, data must be hex calldata, value must be non-negative integer string"
     );
   });
 });
