@@ -58,3 +58,22 @@ test("rejects suspicious OFAC response with zero EVM addresses", async () => {
     /no EVM addresses/
   );
 });
+
+
+test("preserves a fresh bundled snapshot when live OFAC refresh fails", async () => {
+  const fetchImpl = async () => ({
+    ok: false,
+    status: 503,
+    text: async () => ""
+  });
+
+  await assert.rejects(
+    () => refreshOfacSanctions({ fetchImpl, timeoutMs: 1000 }),
+    /OFAC HTTP 503/
+  );
+
+  const status = getSanctionsStatus();
+  assert.equal(status.fresh, true);
+  assert.equal(status.source.startsWith("bundled-ofac-sdn"), true);
+  assert.equal(status.count > 0, true);
+});
