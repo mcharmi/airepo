@@ -148,13 +148,19 @@ export async function refreshOfacSanctions({
     return { ...sanctionsStatus };
   } catch (error) {
     cachedSanctions = new Set([
+      ...bundled.addresses,
       ...cachedSanctions,
       ...configuredAddresses()
     ]);
+    const configured = configuredAddresses();
     sanctionsStatus = {
-      ...sanctionsStatus,
+      source:
+        bundled.addresses.length > 0
+          ? `bundled-ofac-sdn${configured.length > 0 ? "+configured" : ""}`
+          : "configured-only",
+      refreshed_at: bundled.refreshedAt,
       count: cachedSanctions.size,
-      fresh: false,
+      fresh: bundled.fresh,
       error: error instanceof Error ? error.message : String(error)
     };
     throw error;
