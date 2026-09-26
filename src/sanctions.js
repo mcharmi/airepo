@@ -122,7 +122,7 @@ export async function refreshOfacSanctions({
       redirect: "follow",
       signal: AbortSignal.timeout(timeoutMs),
       headers: {
-        "user-agent": "agent-sign-guard/0.4 (OFAC SDN EVM screening)",
+        "user-agent": "txpreflight/0.4 (OFAC SDN EVM screening)",
         accept: "text/csv,text/plain;q=0.9,*/*;q=0.1"
       }
     });
