@@ -1,11 +1,13 @@
 import express from "express";
 import { pathToFileURL } from "node:url";
 import { analyzeTransaction } from "./risk.js";
-import { loadSanctionsSet } from "./sanctions.js";
+import { loadSanctionsSet, refreshOfacSanctions, getSanctionsStatus } from "./sanctions.js";
 
 const app = express();
 app.set("trust proxy", 1);
 const x402Enabled = process.env.X402_ENABLED === "true";
+const requestedEnvironment =
+  process.env.X402_ENVIRONMENT === "production" ? "production" : "development";
 
 if (x402Enabled) {
   const [{ createX402Server }, { paymentMiddlewareFromHTTPServer }] =
@@ -13,9 +15,6 @@ if (x402Enabled) {
       import("@coinbase/cdp-sdk/x402"),
       import("@x402/express")
     ]);
-
-  const requestedEnvironment =
-    process.env.X402_ENVIRONMENT === "production" ? "production" : "development";
 
   if (
     requestedEnvironment === "production" &&
@@ -106,7 +105,8 @@ app.get("/health", (_req, res) => {
     ok: true,
     service: "agent-sign-guard",
     version: "0.3.0",
-    x402: x402Enabled
+    x402: x402Enabled,
+    sanctions: getSanctionsStatus()
   });
 });
 
@@ -133,6 +133,33 @@ app.post("/risk-check", (req, res) => {
 export { app };
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const requireFreshSanctions =
+    process.env.REQUIRE_FRESH_SANCTIONS === "true" ||
+    (x402Enabled && requestedEnvironment === "production");
+  const refreshEnabled = process.env.OFAC_REFRESH_ENABLED !== "false";
+
+  if (refreshEnabled) {
+    try {
+      const status = await refreshOfacSanctions();
+      console.log(
+        `OFAC SDN sanctions loaded: ${status.count} EVM addresses at ${status.refreshed_at}`
+      );
+    } catch (error) {
+      console.error(
+        `OFAC SDN refresh failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+      if (requireFreshSanctions) {
+        throw new Error(
+          "Refusing to start because fresh OFAC SDN data is required."
+        );
+      }
+    }
+  } else if (requireFreshSanctions) {
+    throw new Error(
+      "Refusing to start because OFAC refresh is disabled while fresh sanctions data is required."
+    );
+  }
+
   const port = Number(process.env.PORT || 3000);
   app.listen(port, () => {
     console.log(`agent-sign-guard listening on :${port}`);
