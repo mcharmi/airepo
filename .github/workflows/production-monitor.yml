@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Check public health endpoint
         run: |
-          BODY=$(curl --fail --silent --show-error --max-time 15             https://txpreflight-main-production.up.railway.app/health)
+          BODY=$(curl --fail --silent --show-error --max-time 15             https://agent-sign-guard-main-production.up.railway.app/health)
           echo "$BODY"
           node -e '
             const body = JSON.parse(process.argv[1]);
@@ -31,7 +31,7 @@ jobs:
 
       - name: Check metrics endpoint
         run: |
-          BODY=$(curl --fail --silent --show-error --max-time 15             https://txpreflight-main-production.up.railway.app/metrics)
+          BODY=$(curl --fail --silent --show-error --max-time 15             https://agent-sign-guard-main-production.up.railway.app/metrics)
           echo "$BODY"
           node -e '
             const body = JSON.parse(process.argv[1]);
@@ -44,10 +44,10 @@ jobs:
       - name: Check discovery endpoints
         run: |
           curl --fail --silent --show-error --max-time 15 \
-            https://txpreflight-main-production.up.railway.app/llms.txt \
+            https://agent-sign-guard-main-production.up.railway.app/llms.txt \
             | grep -qi "EVM transaction risk API"
           curl --fail --silent --show-error --max-time 15 \
-            https://txpreflight-main-production.up.railway.app/.well-known/x402 \
+            https://agent-sign-guard-main-production.up.railway.app/.well-known/x402 \
             | node -e '
               let s="";
               process.stdin.on("data", c => s += c);
@@ -58,7 +58,7 @@ jobs:
               });
             '
           curl --fail --silent --show-error --max-time 15 \
-            https://txpreflight-main-production.up.railway.app/openapi.json \
+            https://agent-sign-guard-main-production.up.railway.app/openapi.json \
             | node -e '
               let s="";
               process.stdin.on("data", c => s += c);
@@ -71,13 +71,13 @@ jobs:
               });
             '
           curl --fail --silent --show-error --max-time 15 \
-            https://txpreflight-main-production.up.railway.app/transparency \
+            https://agent-sign-guard-main-production.up.railway.app/transparency \
             > /dev/null
 
       - name: Check x402 Bazaar metadata
         run: |
           curl --silent --show-error --max-time 15 -D /tmp/headers.txt -o /tmp/body.txt \
-            -X POST https://txpreflight-main-production.up.railway.app/risk-check \
+            -X POST https://agent-sign-guard-main-production.up.railway.app/risk-check \
             -H 'content-type: application/json' \
             --data '{"chain":"base","to":"0x1111111111111111111111111111111111111111","data":"0x","value":"0"}'
           STATUS=$(awk 'toupper($1) ~ /^HTTP/ {code=$2} END {print code}' /tmp/headers.txt)
