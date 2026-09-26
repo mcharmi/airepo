@@ -477,8 +477,7 @@ app.get("/sitemap.xml", (_req, res) => {
 });
 
 app.get("/.well-known/security.txt", (_req, res) => {
-  res.type("text/plain").send(`Canonical: ${publicBaseUrl}/.well-known/security.txt
-Policy: ${publicBaseUrl}/transparency
+  res.type("text/plain").send(`Contact: https://github.com/mcharmi/airepo/issues\nCanonical: ${publicBaseUrl}/.well-known/security.txt\nPolicy: ${publicBaseUrl}/transparency
 Expires: 2027-09-26T00:00:00Z
 Preferred-Languages: en, de
 `);
