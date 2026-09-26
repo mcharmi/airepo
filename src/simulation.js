@@ -42,6 +42,23 @@ function safeMessage(error) {
   return message.replace(/[\r\n]+/g, " ").slice(0, 240);
 }
 
+export async function verifyRpcChainId({
+  environment = "development",
+  timeoutMs = Number.parseInt(process.env.EVM_SIMULATION_TIMEOUT_MS || "5000", 10),
+  fetchImpl = fetch
+} = {}) {
+  const expected = environment === "production" ? "0x2105" : "0x14a34";
+  const actual = await rpc("eth_chainId", [], { environment, timeoutMs, fetchImpl });
+  if (String(actual).toLowerCase() !== expected) {
+    throw new Error(`RPC chain mismatch: expected ${expected}, received ${actual}`);
+  }
+  return {
+    chain_id: Number.parseInt(expected.slice(2), 16),
+    chain_id_hex: expected,
+    network: environment === "production" ? "base" : "base-sepolia"
+  };
+}
+
 export async function simulateTransaction(tx, {
   environment = "development",
   timeoutMs = Number.parseInt(process.env.EVM_SIMULATION_TIMEOUT_MS || "5000", 10),
@@ -54,30 +71,27 @@ export async function simulateTransaction(tx, {
     value: hexValue(tx.value || "0")
   };
 
-  try {
-    const [returnData, gasHex] = await Promise.all([
-      rpc("eth_call", [call, "latest"], { environment, timeoutMs, fetchImpl }),
-      rpc("eth_estimateGas", [call], { environment, timeoutMs, fetchImpl })
-    ]);
+  const [callResult, gasResult] = await Promise.allSettled([
+    rpc("eth_call", [call, "latest"], { environment, timeoutMs, fetchImpl }),
+    rpc("eth_estimateGas", [call], { environment, timeoutMs, fetchImpl })
+  ]);
 
-    return {
-      attempted: true,
-      success: true,
-      network: environment === "production" ? "base" : "base-sepolia",
-      from_assumed: !tx.from,
-      gas_estimate: BigInt(gasHex).toString(),
-      return_data: typeof returnData === "string" ? returnData.slice(0, 514) : null,
-      error: null
-    };
-  } catch (error) {
-    return {
-      attempted: true,
-      success: false,
-      network: environment === "production" ? "base" : "base-sepolia",
-      from_assumed: !tx.from,
-      gas_estimate: null,
-      return_data: null,
-      error: safeMessage(error)
-    };
-  }
+  const callOk = callResult.status === "fulfilled";
+  const gasOk = gasResult.status === "fulfilled";
+  const errors = [];
+  if (!callOk) errors.push(`eth_call: ${safeMessage(callResult.reason)}`);
+  if (!gasOk) errors.push(`eth_estimateGas: ${safeMessage(gasResult.reason)}`);
+
+  return {
+    attempted: true,
+    success: callOk,
+    network: environment === "production" ? "base" : "base-sepolia",
+    from_assumed: !tx.from,
+    gas_estimate: gasOk ? BigInt(gasResult.value).toString() : null,
+    return_data:
+      callOk && typeof callResult.value === "string"
+        ? callResult.value.slice(0, 514)
+        : null,
+    error: errors.length ? errors.join(" | ").slice(0, 480) : null
+  };
 }
