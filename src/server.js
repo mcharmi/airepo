@@ -4,7 +4,7 @@ import { analyzeTransaction } from "./risk.js";
 import { loadSanctionsSet, refreshOfacSanctions, getSanctionsStatus } from "./sanctions.js";
 import { createFixedWindowRateLimiter } from "./rate-limit.js";
 import { observeRequest, markRateLimited, getMetricsSnapshot } from "./observability.js";
-import { simulateTransaction } from "./simulation.js";
+import { simulateTransaction, verifyRpcChainId } from "./simulation.js";
 import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 
 const app = express();
@@ -170,21 +170,6 @@ if (x402Enabled) {
       evm: payTo
     },
     routes: {
-      "GET /pay-test": {
-        accepts: [
-          {
-            scheme: "exact",
-            price: process.env.X402_PRICE || "$0.01",
-            network,
-            payTo: ""
-          }
-        ],
-        resource: `${publicBaseUrl}/pay-test`,
-        description: "TxPreflight live x402 payment test. Charges exactly $0.01 USDC on Base and confirms settlement.",
-        mimeType: "text/html",
-        serviceName: "TxPreflight",
-        tags: ["x402", "payment-test", "base", "usdc"]
-      },
       "POST /risk-check": {
         accepts: [
           {
@@ -210,21 +195,12 @@ if (x402Enabled) {
     }
   });
 
-  app.use(
-    paymentMiddlewareFromHTTPServer(x402Server, {
-      appName: "TxPreflight",
-      testnet: environment !== "production"
-    })
-  );
+  app.use(paymentMiddlewareFromHTTPServer(x402Server));
 
   console.log(
     `x402 enabled (${environment}, ${network}); payments received at ${payTo}`
   );
 }
-
-app.get("/pay-test", (_req, res) => {
-  res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TxPreflight payment successful</title></head><body><main><h1>Payment successful</h1><p>The $0.01 USDC x402 Mainnet payment was accepted and settled.</p><p><a href="/">Back to TxPreflight</a></p></main></body></html>`);
-});
 
 app.use(express.json({ limit: "64kb" }));
 app.use((err, _req, res, next) => {
@@ -665,6 +641,15 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const requireFreshSanctions =
     process.env.REQUIRE_FRESH_SANCTIONS === "true" ||
     (x402Enabled && requestedEnvironment === "production");
+
+  if (x402Enabled || simulationEnabled) {
+    const rpcStatus = await verifyRpcChainId({
+      environment: requestedEnvironment
+    });
+    console.log(
+      `Verified RPC chain: ${rpcStatus.network} (${rpcStatus.chain_id})`
+    );
+  }
   const refreshEnabled = process.env.OFAC_REFRESH_ENABLED !== "false";
 
   if (refreshEnabled) {
