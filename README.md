@@ -29,7 +29,7 @@ Supported detections:
 - ERC20 approve
 - ERC721 / ERC1155 setApprovalForAll
 - malformed calldata
-- configurable sanctions-list match for destination and spender
+- automatically refreshed OFAC SDN EVM-address match for destination, recipient, spender and operator\n- optional additional configured EVM addresses
 
 ## Design principles
 
