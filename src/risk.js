@@ -1,3 +1,5 @@
+import { PERMIT2_ADDRESS, decodePermit2 } from "./permit2.js";
+
 const SELECTORS = {
   ERC20_TRANSFER: "a9059cbb",
   ERC20_APPROVE: "095ea7b3",
@@ -53,6 +55,9 @@ function baseResult() {
     spender: null,
     recipient: null,
     amount: null,
+    token: null,
+    permit2: false,
+    permit2_entries: [],
     unlimited_approval: false,
     sanctioned_match: false,
     flags: [],
@@ -124,6 +129,115 @@ export function analyzeTransaction(tx, sanctions = new Set()) {
   }
 
   const selector = data.slice(0, 8);
+
+  if (result.to === PERMIT2_ADDRESS) {
+    result.permit2 = true;
+    const permit2 = decodePermit2("0x" + data);
+
+    if (!permit2.recognized) {
+      result.action = "PERMIT2_UNKNOWN";
+      raise(
+        result,
+        40,
+        "REVIEW",
+        "UNKNOWN_PERMIT2_CALL",
+        "Call targets canonical Permit2 but the method is not covered by the decoder"
+      );
+      return result;
+    }
+
+    result.action = permit2.action;
+    result.spender = permit2.spender || null;
+    result.recipient = permit2.recipient || null;
+    result.amount = permit2.amount || null;
+    result.token = permit2.token || null;
+    result.permit2_entries = permit2.entries || [];
+
+    const involved = new Set([
+      permit2.owner,
+      permit2.spender,
+      permit2.recipient,
+      permit2.token,
+      ...(permit2.entries || []).flatMap(entry => [
+        entry.from,
+        entry.recipient,
+        entry.token
+      ])
+    ].filter(Boolean));
+
+    for (const address of involved) {
+      if (sanctions.has(address)) {
+        result.sanctioned_match = true;
+        raise(
+          result,
+          100,
+          "BLOCK",
+          "SANCTIONS_MATCH",
+          "Permit2 call includes an address matching configured sanctions data"
+        );
+        break;
+      }
+    }
+
+    if (permit2.unlimited) {
+      result.unlimited_approval = true;
+      raise(
+        result,
+        90,
+        "BLOCK",
+        "UNLIMITED_PERMIT2_APPROVAL",
+        "Permit2 grants an unlimited token allowance"
+      );
+      return result;
+    }
+
+    if (
+      permit2.action === "PERMIT2_ALLOWANCE_PERMIT" ||
+      permit2.action === "PERMIT2_ALLOWANCE_PERMIT_BATCH"
+    ) {
+      const hasPositive = (permit2.entries || []).some(
+        entry => BigInt(entry.amount || "0") > 0n
+      );
+      if (hasPositive) {
+        raise(
+          result,
+          50,
+          "REVIEW",
+          "PERMIT2_APPROVAL",
+          "Permit2 signature grants token spending authority"
+        );
+      }
+      return result;
+    }
+
+    if (
+      permit2.action === "PERMIT2_TRANSFER" ||
+      permit2.action === "PERMIT2_TRANSFER_BATCH"
+    ) {
+      raise(
+        result,
+        40,
+        "REVIEW",
+        "PERMIT2_TRANSFER",
+        "Permit2 transfers tokens using an existing allowance"
+      );
+      return result;
+    }
+
+    if (
+      permit2.action.startsWith("PERMIT2_SIGNATURE_TRANSFER") ||
+      permit2.action.startsWith("PERMIT2_WITNESS_TRANSFER")
+    ) {
+      raise(
+        result,
+        45,
+        "REVIEW",
+        "PERMIT2_SIGNATURE_TRANSFER",
+        "Permit2 authorizes token movement using a signed one-time permission"
+      );
+      return result;
+    }
+  }
 
   try {
     const expectedLength = FIXED_CALLDATA_LENGTH[selector];
