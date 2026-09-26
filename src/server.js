@@ -5,6 +5,7 @@ import { loadSanctionsSet, refreshOfacSanctions, getSanctionsStatus } from "./sa
 import { createFixedWindowRateLimiter } from "./rate-limit.js";
 import { observeRequest, markRateLimited, getMetricsSnapshot } from "./observability.js";
 import { simulateTransaction } from "./simulation.js";
+import { declareDiscoveryExtension } from "@x402/extensions/bazaar";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -21,6 +22,92 @@ const riskLimiter = createFixedWindowRateLimiter({
   windowMs: riskRateWindowMs
 });
 const simulationEnabled = process.env.EVM_SIMULATION_ENABLED === "true";
+const publicBaseUrl =
+  process.env.PUBLIC_BASE_URL ||
+  "https://agent-sign-guard-main-production.up.railway.app";
+const serviceDescription =
+  "Pre-sign EVM transaction risk API for AI agents on Base. Detects ERC20 approvals, unlimited approvals, Permit2 permissions and transfers, OFAC SDN EVM address matches, malformed calldata, and adds current-state EVM simulation before signing.";
+
+const bazaarDiscovery = declareDiscoveryExtension({
+  bodyType: "json",
+  input: {
+    chain: "base",
+    from: "0x1111111111111111111111111111111111111111",
+    to: "0x2222222222222222222222222222222222222222",
+    data: "0x",
+    value: "0"
+  },
+  inputSchema: {
+    properties: {
+      chain: {
+        type: "string",
+        const: "base",
+        description: "Blockchain. Agent Sign Guard currently supports Base."
+      },
+      from: {
+        type: "string",
+        description:
+          "Optional EVM sender address. Supplying it improves current-state simulation accuracy."
+      },
+      to: {
+        type: "string",
+        description: "20-byte destination contract or recipient EVM address."
+      },
+      data: {
+        type: "string",
+        description:
+          "Unsigned transaction calldata as 0x-prefixed hex. Use 0x for a native transfer."
+      },
+      value: {
+        type: "string",
+        description:
+          "Unsigned native token value in wei as a non-negative decimal integer string."
+      }
+    },
+    required: ["chain", "to", "data", "value"]
+  },
+  output: {
+    example: {
+      verdict: "REVIEW",
+      risk_score: 45,
+      action: "PERMIT2_SIGNATURE_TRANSFER",
+      sanctioned_match: false,
+      unlimited_approval: false,
+      flags: ["PERMIT2_SIGNATURE_TRANSFER"],
+      reasons: [
+        "Permit2 authorizes token movement using a signed one-time permission"
+      ],
+      simulation: {
+        attempted: true,
+        success: true,
+        network: "base-sepolia",
+        from_assumed: false,
+        gas_estimate: "23697"
+      }
+    },
+    schema: {
+      type: "object",
+      properties: {
+        verdict: { type: "string", enum: ["ALLOW", "REVIEW", "BLOCK"] },
+        risk_score: { type: "integer", minimum: 0, maximum: 100 },
+        action: { type: "string" },
+        sanctioned_match: { type: "boolean" },
+        unlimited_approval: { type: "boolean" },
+        flags: { type: "array", items: { type: "string" } },
+        reasons: { type: "array", items: { type: "string" } },
+        simulation: { type: "object" }
+      },
+      required: [
+        "verdict",
+        "risk_score",
+        "action",
+        "sanctioned_match",
+        "flags",
+        "reasons"
+      ]
+    }
+  }
+});
 
 app.use((req, res, next) => {
   observeRequest(req, res);
@@ -92,8 +179,18 @@ if (x402Enabled) {
             payTo: ""
           }
         ],
-        description:
-          "Deterministic pre-sign risk screening for unsigned Base EVM transactions. Detects ERC20 transfers, token approvals, unlimited approvals, setApprovalForAll, malformed calldata and OFAC SDN and configured address matches. Returns machine-readable ALLOW, REVIEW or BLOCK."
+        resource: `${publicBaseUrl}/risk-check`,
+        description: serviceDescription,
+        mimeType: "application/json",
+        serviceName: "Agent Sign Guard",
+        tags: [
+          "evm-security",
+          "transaction-risk",
+          "base",
+          "permit2",
+          "x402"
+        ],
+        extensions: bazaarDiscovery
       }
     }
   });
@@ -140,6 +237,212 @@ function isSemanticallyValidPayload(body) {
   }
   return true;
 }
+
+
+const publicExample = {
+  chain: "base",
+  from: "0x1111111111111111111111111111111111111111",
+  to: "0x2222222222222222222222222222222222222222",
+  data: "0x",
+  value: "0"
+};
+
+app.get("/", (_req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Agent Sign Guard - EVM Transaction Risk API for AI Agents</title>
+  <meta name="description" content="Pre-sign EVM transaction risk screening for AI agents on Base. Detect unlimited approvals, Permit2 permissions, OFAC SDN EVM matches, malformed calldata and simulate transactions before signing.">
+  <meta name="keywords" content="EVM transaction risk API, AI agent wallet security, pre-sign transaction screening, Base transaction simulation, Permit2 risk, ERC20 approval risk, unlimited approval detection, OFAC wallet screening, x402 API">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="${publicBaseUrl}/">
+</head>
+<body>
+  <main>
+    <h1>Agent Sign Guard</h1>
+    <p>Deterministic pre-sign transaction risk screening for autonomous agents and wallets on Base.</p>
+    <h2>What it detects</h2>
+    <ul>
+      <li>ERC20 transfers and token approvals</li>
+      <li>Unlimited approvals and setApprovalForAll</li>
+      <li>Uniswap Permit2 permissions and transfers</li>
+      <li>OFAC SDN EVM address matches</li>
+      <li>Malformed or unknown calldata</li>
+      <li>Current-state EVM simulation before signing</li>
+    </ul>
+    <h2>Paid API</h2>
+    <p><code>POST /risk-check</code> is protected by x402 and returns ALLOW, REVIEW or BLOCK with structured reasons.</p>
+    <p>Machine-readable discovery: <a href="/llms.txt">llms.txt</a>, <a href="/.well-known/x402">x402 manifest</a>, <a href="/transparency">transparency</a>, <a href="/.well-known/security.txt">security.txt</a>.</p>
+  </main>
+</body>
+</html>`);
+});
+
+app.get("/llms.txt", (_req, res) => {
+  res.type("text/plain").send(`# Agent Sign Guard
+
+> Pre-sign EVM transaction risk API for AI agents, autonomous wallets, and agentic payment systems on Base.
+
+Agent Sign Guard helps an AI agent decide whether an unsigned EVM transaction should be ALLOWed, REVIEWed, or BLOCKed before signing.
+
+## Primary endpoint
+- POST ${publicBaseUrl}/risk-check
+- Payment: x402
+- Price: ${process.env.X402_PRICE || "$0.01"}
+- Network: Base Sepolia during testing; Base mainnet only when explicitly enabled.
+- Content-Type: application/json
+
+## Inputs
+Required: chain, to, data, value.
+Optional: from. Supplying from improves EVM simulation accuracy.
+
+Example:
+${JSON.stringify(publicExample, null, 2)}
+
+## Capabilities
+- EVM transaction risk API
+- pre-sign transaction security screening
+- Base transaction risk analysis
+- ERC20 transfer decoding
+- ERC20 approval risk detection
+- unlimited token approval detection
+- setApprovalForAll detection
+- Uniswap Permit2 approval and transfer analysis
+- Permit2 signature transfer analysis
+- OFAC SDN EVM address screening
+- malformed calldata detection
+- unknown function selector review
+- Base EVM eth_call simulation
+- Base gas estimation
+- x402 paid API for autonomous agents
+
+## Output
+Structured JSON with verdict (ALLOW, REVIEW, BLOCK), risk_score, action, decoded actors/amounts, flags, reasons, sanctions signal, and optional simulation result.
+
+## Important limitations
+A non-match is not a legal sanctions clearance. Unknown or unsupported contract behavior may require additional review. The service never claims that an address is absolutely safe or a scam.
+
+## Discovery
+- x402 manifest: ${publicBaseUrl}/.well-known/x402
+- Transparency: ${publicBaseUrl}/transparency
+- Health: ${publicBaseUrl}/health
+- Metrics: ${publicBaseUrl}/metrics
+`);
+});
+
+app.get("/robots.txt", (_req, res) => {
+  res.type("text/plain").send(`User-agent: *
+Allow: /
+Sitemap: ${publicBaseUrl}/sitemap.xml
+`);
+});
+
+app.get("/sitemap.xml", (_req, res) => {
+  const urls = [
+    "/",
+    "/llms.txt",
+    "/.well-known/x402",
+    "/transparency",
+    "/.well-known/security.txt"
+  ];
+  res.type("application/xml").send(
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' +
+      urls.map(path => `<url><loc>${publicBaseUrl}${path}</loc></url>`).join("") +
+      "</urlset>"
+  );
+});
+
+app.get("/.well-known/security.txt", (_req, res) => {
+  res.type("text/plain").send(`Canonical: ${publicBaseUrl}/.well-known/security.txt
+Policy: ${publicBaseUrl}/transparency
+Expires: 2027-09-26T00:00:00Z
+Preferred-Languages: en, de
+`);
+});
+
+app.get("/security.txt", (_req, res) => {
+  res.redirect(301, "/.well-known/security.txt");
+});
+
+app.get("/.well-known/x402", (_req, res) => {
+  res.json({
+    name: "Agent Sign Guard",
+    version: "0.6.0",
+    protocol: "x402",
+    resource: `${publicBaseUrl}/risk-check`,
+    method: "POST",
+    description: serviceDescription,
+    price: process.env.X402_PRICE || "$0.01",
+    payment_network:
+      requestedEnvironment === "production" ? "eip155:8453" : "eip155:84532",
+    content_type: "application/json",
+    tags: [
+      "evm-security",
+      "transaction-risk",
+      "base",
+      "permit2",
+      "x402"
+    ],
+    capabilities: [
+      "pre-sign transaction screening",
+      "ERC20 approval risk",
+      "unlimited approval detection",
+      "Permit2 risk detection",
+      "OFAC SDN EVM screening",
+      "Base EVM transaction simulation"
+    ],
+    llms: `${publicBaseUrl}/llms.txt`,
+    transparency: `${publicBaseUrl}/transparency`
+  });
+});
+
+app.get("/transparency", (_req, res) => {
+  res.json({
+    service: "Agent Sign Guard",
+    version: "0.6.0",
+    decision_path: "deterministic",
+    llm_in_decision_path: false,
+    supported_chain: "base",
+    payment_protocol: "x402",
+    supported_risk_checks: [
+      "ERC20 transfer",
+      "ERC20 approve",
+      "setApprovalForAll",
+      "EIP-2612 permit",
+      "Uniswap Permit2",
+      "OFAC SDN direct EVM address match",
+      "malformed calldata",
+      "unknown selector review",
+      "EVM eth_call and gas-estimate simulation"
+    ],
+    limitations: [
+      "A sanctions non-match is not legal clearance.",
+      "OFAC 50 Percent Rule and ownership relationships are not fully resolved by direct address matching.",
+      "Unknown or arbitrary contract behavior can require additional analysis.",
+      "Simulation results depend on current chain state and supplied sender context."
+    ],
+    source_repository: "https://github.com/mcharmi/airepo"
+  });
+});
+
+app.get("/.well-known/agent-card.json", (_req, res) => {
+  res.status(404).json({
+    error: "NOT_A2A_SERVER",
+    message:
+      "Agent Sign Guard is an x402 HTTP API, not an A2A JSON-RPC server. Use /llms.txt and /.well-known/x402 for machine-readable discovery."
+  });
+});
+
+app.get("/.well-known/agent.json", (_req, res) => {
+  res.status(404).json({
+    error: "NOT_A2A_SERVER",
+    message:
+      "Agent Sign Guard does not claim A2A protocol compatibility. Use /llms.txt and /.well-known/x402."
+  });
+});
 
 app.get("/metrics", (_req, res) => {
   res.json(
