@@ -40,3 +40,23 @@ jobs:
             if (typeof body.requests_total !== "number") throw new Error("missing request counter");
             if (typeof body.rate_limited_total !== "number") throw new Error("missing rate-limit counter");
           ' "$BODY"
+
+      - name: Check discovery endpoints
+        run: |
+          curl --fail --silent --show-error --max-time 15 \
+            https://agent-sign-guard-main-production.up.railway.app/llms.txt \
+            | grep -qi "EVM transaction risk API"
+          curl --fail --silent --show-error --max-time 15 \
+            https://agent-sign-guard-main-production.up.railway.app/.well-known/x402 \
+            | node -e '
+              let s="";
+              process.stdin.on("data", c => s += c);
+              process.stdin.on("end", () => {
+                const body = JSON.parse(s);
+                if (body.protocol !== "x402") throw new Error("x402 manifest missing");
+                if (!body.tags?.includes("permit2")) throw new Error("discovery tags missing");
+              });
+            '
+          curl --fail --silent --show-error --max-time 15 \
+            https://agent-sign-guard-main-production.up.railway.app/transparency \
+            > /dev/null
