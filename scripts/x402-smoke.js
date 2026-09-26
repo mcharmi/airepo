@@ -34,12 +34,21 @@ const client = new x402Client();
 client.register("eip155:*", new ExactEvmScheme(signer));
 const fetchWithPayment = wrapFetchWithPayment(globalThis.fetch, client);
 
-const payload = {
-  chain: "base",
-  to: "0x1111111111111111111111111111111111111111",
-  data: "0x095ea7b30000000000000000000000002222222222222222222222222222222222222222ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-  value: "0"
-};
+const sanctionsTarget = (process.env.X402_SANCTIONS_SMOKE_TO || "").trim();
+
+const payload = sanctionsTarget
+  ? {
+      chain: "base",
+      to: sanctionsTarget,
+      data: "0x",
+      value: "1"
+    }
+  : {
+      chain: "base",
+      to: "0x1111111111111111111111111111111111111111",
+      data: "0x095ea7b30000000000000000000000002222222222222222222222222222222222222222ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      value: "0"
+    };
 
 let response;
 for (let attempt = 1; attempt <= 8; attempt += 1) {
@@ -78,10 +87,20 @@ if (response.status !== 200) {
   process.exitCode = 1;
 } else {
   const parsed = JSON.parse(body);
-  if (parsed.verdict !== "BLOCK" || parsed.action !== "ERC20_APPROVE") {
+  const valid = sanctionsTarget
+    ? parsed.verdict === "BLOCK" &&
+      parsed.sanctioned_match === true &&
+      parsed.flags?.includes("SANCTIONS_MATCH")
+    : parsed.verdict === "BLOCK" && parsed.action === "ERC20_APPROVE";
+
+  if (!valid) {
     console.error("Unexpected risk decision from paid endpoint");
     process.exitCode = 1;
   } else {
-    console.log("x402 paid smoke test passed");
+    console.log(
+      sanctionsTarget
+        ? "x402 sanctions smoke test passed"
+        : "x402 paid smoke test passed"
+    );
   }
 }
