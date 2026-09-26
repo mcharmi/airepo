@@ -11,8 +11,8 @@ function hexValue(decimal) {
   return `0x${BigInt(decimal).toString(16)}`;
 }
 
-async function rpc(method, params, { environment, timeoutMs }) {
-  const response = await fetch(rpcUrl(environment), {
+async function rpc(method, params, { environment, timeoutMs, fetchImpl }) {
+  const response = await fetchImpl(rpcUrl(environment), {
     method: "POST",
     headers: { "content-type": "application/json" },
     signal: AbortSignal.timeout(timeoutMs),
@@ -44,7 +44,8 @@ function safeMessage(error) {
 
 export async function simulateTransaction(tx, {
   environment = "development",
-  timeoutMs = Number.parseInt(process.env.EVM_SIMULATION_TIMEOUT_MS || "5000", 10)
+  timeoutMs = Number.parseInt(process.env.EVM_SIMULATION_TIMEOUT_MS || "5000", 10),
+  fetchImpl = fetch
 } = {}) {
   const call = {
     from: tx.from || ZERO_ADDRESS,
@@ -55,8 +56,8 @@ export async function simulateTransaction(tx, {
 
   try {
     const [returnData, gasHex] = await Promise.all([
-      rpc("eth_call", [call, "latest"], { environment, timeoutMs }),
-      rpc("eth_estimateGas", [call], { environment, timeoutMs })
+      rpc("eth_call", [call, "latest"], { environment, timeoutMs, fetchImpl }),
+      rpc("eth_estimateGas", [call], { environment, timeoutMs, fetchImpl })
     ]);
 
     return {
