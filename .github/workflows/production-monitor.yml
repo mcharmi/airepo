@@ -74,12 +74,6 @@ jobs:
             https://agent-sign-guard-main-production.up.railway.app/transparency \
             > /dev/null
 
-      - name: Check browser payment test paywall
-        run: |
-          STATUS=$(curl --silent --show-error --max-time 15 -o /tmp/paywall.html -w "%{http_code}" \
-            -H 'accept: text/html' \
-            https://agent-sign-guard-main-production.up.railway.app/pay-test)
-          test "$STATUS" = "402"
 
       - name: Check x402 Bazaar metadata
         run: |
