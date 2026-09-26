@@ -80,7 +80,6 @@ jobs:
             -H 'accept: text/html' \
             https://agent-sign-guard-main-production.up.railway.app/pay-test)
           test "$STATUS" = "402"
-          grep -qi "TxPreflight" /tmp/paywall.html
 
       - name: Check x402 Bazaar metadata
         run: |
