@@ -1,13 +1,43 @@
-const OFAC_SDN_CSV_URL =
+import { readFileSync } from "node:fs";
+
+export const OFAC_SDN_CSV_URL =
   process.env.OFAC_SDN_CSV_URL ||
   "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV";
 
-let cachedSanctions = new Set();
+function loadBundledSnapshot() {
+  try {
+    const raw = readFileSync(
+      new URL("../data/ofac-sdn-evm.json", import.meta.url),
+      "utf8"
+    );
+    const parsed = JSON.parse(raw);
+    const addresses = Array.isArray(parsed.addresses)
+      ? parsed.addresses
+          .map(v => String(v).toLowerCase())
+          .filter(v => /^0x[0-9a-f]{40}$/.test(v))
+      : [];
+    const refreshedAt =
+      typeof parsed.generated_at === "string" ? parsed.generated_at : null;
+    const ageMs = refreshedAt
+      ? Date.now() - Date.parse(refreshedAt)
+      : Number.POSITIVE_INFINITY;
+    return {
+      addresses,
+      refreshedAt,
+      fresh: Number.isFinite(ageMs) && ageMs >= 0 && ageMs <= 72 * 60 * 60 * 1000
+    };
+  } catch {
+    return { addresses: [], refreshedAt: null, fresh: false };
+  }
+}
+
+const bundled = loadBundledSnapshot();
+let cachedSanctions = new Set(bundled.addresses);
 let sanctionsStatus = {
-  source: "configured-only",
-  refreshed_at: null,
-  count: 0,
-  fresh: false,
+  source: bundled.addresses.length > 0 ? "bundled-ofac-sdn" : "configured-only",
+  refreshed_at: bundled.refreshedAt,
+  count: bundled.addresses.length,
+  fresh: bundled.fresh,
   error: null
 };
 
@@ -139,5 +169,8 @@ export function getSanctionsStatus() {
   return { ...sanctionsStatus, count: loadSanctionsSet().size };
 }
 
-cachedSanctions = new Set(configuredAddresses());
+cachedSanctions = new Set([...cachedSanctions, ...configuredAddresses()]);
 sanctionsStatus.count = cachedSanctions.size;
+if (configuredAddresses().length > 0) {
+  sanctionsStatus.source += "+configured";
+}
