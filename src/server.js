@@ -2,12 +2,50 @@ import express from "express";
 import { pathToFileURL } from "node:url";
 import { analyzeTransaction } from "./risk.js";
 import { loadSanctionsSet, refreshOfacSanctions, getSanctionsStatus } from "./sanctions.js";
+import { createFixedWindowRateLimiter } from "./rate-limit.js";
+import { observeRequest, markRateLimited, getMetricsSnapshot } from "./observability.js";
 
 const app = express();
 app.set("trust proxy", 1);
 const x402Enabled = process.env.X402_ENABLED === "true";
 const requestedEnvironment =
   process.env.X402_ENVIRONMENT === "production" ? "production" : "development";
+const riskRateLimit = Number.parseInt(process.env.RISK_RATE_LIMIT || "120", 10);
+const riskRateWindowMs = Number.parseInt(
+  process.env.RISK_RATE_WINDOW_MS || "60000",
+  10
+);
+const riskLimiter = createFixedWindowRateLimiter({
+  limit: riskRateLimit,
+  windowMs: riskRateWindowMs
+});
+
+app.use((req, res, next) => {
+  observeRequest(req, res);
+  next();
+});
+
+app.use((req, res, next) => {
+  if (req.method !== "POST" || req.path !== "/risk-check") {
+    return next();
+  }
+
+  const result = riskLimiter.check(req.ip || req.socket.remoteAddress || "unknown");
+  res.setHeader("X-RateLimit-Limit", String(result.limit));
+  res.setHeader("X-RateLimit-Remaining", String(result.remaining));
+  res.setHeader("X-RateLimit-Reset", String(Math.ceil(result.resetAt / 1000)));
+
+  if (!result.allowed) {
+    markRateLimited();
+    res.setHeader("Retry-After", String(result.retryAfterSeconds));
+    return res.status(429).json({
+      error: "RATE_LIMITED",
+      message: "Too many requests. Retry after the indicated delay."
+    });
+  }
+
+  return next();
+});
 
 if (x402Enabled) {
   const [{ createX402Server }, { paymentMiddlewareFromHTTPServer }] =
@@ -100,11 +138,19 @@ function isSemanticallyValidPayload(body) {
   return true;
 }
 
+app.get("/metrics", (_req, res) => {
+  res.json(
+    getMetricsSnapshot({
+      limiterEntries: riskLimiter.size()
+    })
+  );
+});
+
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
     service: "agent-sign-guard",
-    version: "0.4.0",
+    version: "0.5.0",
     x402: x402Enabled,
     sanctions: getSanctionsStatus()
   });
