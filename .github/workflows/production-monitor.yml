@@ -16,12 +16,12 @@ jobs:
     steps:
       - name: Check public health endpoint
         run: |
-          BODY=$(curl --fail --silent --show-error --max-time 15             https://agent-sign-guard-main-production.up.railway.app/health)
+          BODY=$(curl --fail --silent --show-error --max-time 15             https://txpreflight-main-production.up.railway.app/health)
           echo "$BODY"
           node -e '
             const body = JSON.parse(process.argv[1]);
             if (body.ok !== true) throw new Error("service not healthy");
-            if (body.service !== "agent-sign-guard") throw new Error("unexpected service");
+            if (body.service !== "txpreflight") throw new Error("unexpected service");
             if (body.version !== "0.6.0") throw new Error("unexpected version");
             if (body.x402 !== true) throw new Error("x402 not enabled");
             if (body.simulation !== true) throw new Error("EVM simulation not enabled");
@@ -31,11 +31,11 @@ jobs:
 
       - name: Check metrics endpoint
         run: |
-          BODY=$(curl --fail --silent --show-error --max-time 15             https://agent-sign-guard-main-production.up.railway.app/metrics)
+          BODY=$(curl --fail --silent --show-error --max-time 15             https://txpreflight-main-production.up.railway.app/metrics)
           echo "$BODY"
           node -e '
             const body = JSON.parse(process.argv[1]);
-            if (body.service !== "agent-sign-guard") throw new Error("unexpected metrics service");
+            if (body.service !== "txpreflight") throw new Error("unexpected metrics service");
             if (body.version !== "0.6.0") throw new Error("unexpected metrics version");
             if (typeof body.requests_total !== "number") throw new Error("missing request counter");
             if (typeof body.rate_limited_total !== "number") throw new Error("missing rate-limit counter");
@@ -44,10 +44,10 @@ jobs:
       - name: Check discovery endpoints
         run: |
           curl --fail --silent --show-error --max-time 15 \
-            https://agent-sign-guard-main-production.up.railway.app/llms.txt \
+            https://txpreflight-main-production.up.railway.app/llms.txt \
             | grep -qi "EVM transaction risk API"
           curl --fail --silent --show-error --max-time 15 \
-            https://agent-sign-guard-main-production.up.railway.app/.well-known/x402 \
+            https://txpreflight-main-production.up.railway.app/.well-known/x402 \
             | node -e '
               let s="";
               process.stdin.on("data", c => s += c);
@@ -58,7 +58,7 @@ jobs:
               });
             '
           curl --fail --silent --show-error --max-time 15 \
-            https://agent-sign-guard-main-production.up.railway.app/openapi.json \
+            https://txpreflight-main-production.up.railway.app/openapi.json \
             | node -e '
               let s="";
               process.stdin.on("data", c => s += c);
@@ -71,13 +71,13 @@ jobs:
               });
             '
           curl --fail --silent --show-error --max-time 15 \
-            https://agent-sign-guard-main-production.up.railway.app/transparency \
+            https://txpreflight-main-production.up.railway.app/transparency \
             > /dev/null
 
       - name: Check x402 Bazaar metadata
         run: |
           curl --silent --show-error --max-time 15 -D /tmp/headers.txt -o /tmp/body.txt \
-            -X POST https://agent-sign-guard-main-production.up.railway.app/risk-check \
+            -X POST https://txpreflight-main-production.up.railway.app/risk-check \
             -H 'content-type: application/json' \
             --data '{"chain":"base","to":"0x1111111111111111111111111111111111111111","data":"0x","value":"0"}'
           STATUS=$(awk 'toupper($1) ~ /^HTTP/ {code=$2} END {print code}' /tmp/headers.txt)
@@ -87,7 +87,7 @@ jobs:
           node -e '
             const raw = Buffer.from(process.argv[1], "base64").toString("utf8");
             const body = JSON.parse(raw);
-            if (body.resource?.serviceName !== "Agent Sign Guard") {
+            if (body.resource?.serviceName !== "TxPreflight") {
               throw new Error("serviceName missing from x402 resource metadata");
             }
             const tags = body.resource?.tags || [];
