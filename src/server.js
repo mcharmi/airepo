@@ -258,6 +258,20 @@ app.get("/", (_req, res) => {
   <meta name="keywords" content="EVM transaction risk API, AI agent wallet security, pre-sign transaction screening, Base transaction simulation, Permit2 risk, ERC20 approval risk, unlimited approval detection, OFAC wallet screening, x402 API">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="${publicBaseUrl}/">
+  <meta property="og:title" content="Agent Sign Guard - EVM Transaction Risk API">
+  <meta property="og:description" content="Pre-sign EVM risk screening for AI agents: Permit2, ERC20 approvals, OFAC SDN matching and Base simulation via x402.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="${publicBaseUrl}/">
+  <script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Agent Sign Guard",
+    applicationCategory: "SecurityApplication",
+    operatingSystem: "Web API",
+    description:
+      "Pre-sign EVM transaction risk API for AI agents on Base with Permit2 analysis, approval risk detection, OFAC SDN screening and EVM simulation.",
+    url: publicBaseUrl
+  })}</script>
 </head>
 <body>
   <main>
@@ -278,6 +292,112 @@ app.get("/", (_req, res) => {
   </main>
 </body>
 </html>`);
+});
+
+app.get("/openapi.json", (_req, res) => {
+  res.json({
+    openapi: "3.1.0",
+    info: {
+      title: "Agent Sign Guard API",
+      version: "0.6.0",
+      description: serviceDescription
+    },
+    servers: [{ url: publicBaseUrl }],
+    paths: {
+      "/risk-check": {
+        post: {
+          operationId: "screenEvmTransactionBeforeSigning",
+          summary: "Screen an unsigned Base EVM transaction before signing",
+          description:
+            "Returns a deterministic ALLOW, REVIEW or BLOCK decision with decoded approval/Permit2 risk, OFAC SDN direct-address screening, and optional current-state EVM simulation. Access is paid via x402.",
+          tags: ["EVM Security", "Transaction Risk", "AI Agents", "Base", "x402"],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    chain: { type: "string", const: "base" },
+                    from: {
+                      type: "string",
+                      pattern: "^0x[0-9a-fA-F]{40}$",
+                      description:
+                        "Optional sender address; improves simulation accuracy."
+                    },
+                    to: {
+                      type: "string",
+                      pattern: "^0x[0-9a-fA-F]{40}$"
+                    },
+                    data: {
+                      type: "string",
+                      pattern: "^0x([0-9a-fA-F]{2})*$"
+                    },
+                    value: {
+                      type: "string",
+                      pattern: "^[0-9]+$",
+                      description: "Native value in wei as a decimal integer string."
+                    }
+                  },
+                  required: ["chain", "to", "data", "value"]
+                },
+                example: publicExample
+              }
+            }
+          },
+          responses: {
+            "200": {
+              description: "Risk decision after successful x402 payment.",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      verdict: {
+                        type: "string",
+                        enum: ["ALLOW", "REVIEW", "BLOCK"]
+                      },
+                      risk_score: {
+                        type: "integer",
+                        minimum: 0,
+                        maximum: 100
+                      },
+                      action: { type: "string" },
+                      sanctioned_match: { type: "boolean" },
+                      unlimited_approval: { type: "boolean" },
+                      flags: {
+                        type: "array",
+                        items: { type: "string" }
+                      },
+                      reasons: {
+                        type: "array",
+                        items: { type: "string" }
+                      },
+                      simulation: { type: ["object", "null"] }
+                    },
+                    required: [
+                      "verdict",
+                      "risk_score",
+                      "action",
+                      "sanctioned_match",
+                      "flags",
+                      "reasons"
+                    ]
+                  }
+                }
+              }
+            },
+            "402": {
+              description: "x402 payment required."
+            },
+            "429": {
+              description: "Rate limit exceeded."
+            }
+          }
+        }
+      }
+    }
+  });
 });
 
 app.get("/llms.txt", (_req, res) => {
@@ -325,7 +445,7 @@ Structured JSON with verdict (ALLOW, REVIEW, BLOCK), risk_score, action, decoded
 A non-match is not a legal sanctions clearance. Unknown or unsupported contract behavior may require additional review. The service never claims that an address is absolutely safe or a scam.
 
 ## Discovery
-- x402 manifest: ${publicBaseUrl}/.well-known/x402
+- OpenAPI: ${publicBaseUrl}/openapi.json\n- x402 manifest: ${publicBaseUrl}/.well-known/x402
 - Transparency: ${publicBaseUrl}/transparency
 - Health: ${publicBaseUrl}/health
 - Metrics: ${publicBaseUrl}/metrics
@@ -342,7 +462,7 @@ Sitemap: ${publicBaseUrl}/sitemap.xml
 app.get("/sitemap.xml", (_req, res) => {
   const urls = [
     "/",
-    "/llms.txt",
+    "/llms.txt",\n    "/openapi.json",
     "/.well-known/x402",
     "/transparency",
     "/.well-known/security.txt"
@@ -394,7 +514,7 @@ app.get("/.well-known/x402", (_req, res) => {
       "OFAC SDN EVM screening",
       "Base EVM transaction simulation"
     ],
-    llms: `${publicBaseUrl}/llms.txt`,
+    openapi: `${publicBaseUrl}/openapi.json`,\n    llms: `${publicBaseUrl}/llms.txt`,
     transparency: `${publicBaseUrl}/transparency`
   });
 });
