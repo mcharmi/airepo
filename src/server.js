@@ -403,7 +403,7 @@ app.get("/openapi.json", (_req, res) => {
 app.get("/llms.txt", (_req, res) => {
   res.type("text/plain").send(`# TxPreflight
 
-> Pre-sign transaction risk API for autonomous agents on Base Mainnet.
+> Pre-sign EVM transaction risk API for autonomous agents on Base Mainnet.
 
 ## When to call
 Call TxPreflight immediately before signing or broadcasting an unsigned Base transaction when your agent is about to transfer value, approve token spending, grant or use Permit2 permissions, call setApprovalForAll, interact with third-party calldata, or execute a transaction proposed by another app, tool, contract, or agent.
