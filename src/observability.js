@@ -38,7 +38,7 @@ export function markRateLimited() {
 export function getMetricsSnapshot({ limiterEntries = 0 } = {}) {
   return {
     service: "agent-sign-guard",
-    version: "0.5.0",
+    version: "0.6.0",
     uptime_seconds: Math.floor((Date.now() - startedAt) / 1000),
     requests_total: counters.requests_total,
     risk_check_requests_total: counters.risk_check_requests_total,
