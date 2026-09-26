@@ -515,7 +515,8 @@ app.get("/.well-known/x402", (_req, res) => {
       "OFAC SDN EVM screening",
       "Base EVM transaction simulation"
     ],
-    openapi: `${publicBaseUrl}/openapi.json`,\n    llms: `${publicBaseUrl}/llms.txt`,
+    openapi: `${publicBaseUrl}/openapi.json`,
+    llms: `${publicBaseUrl}/llms.txt`,
     transparency: `${publicBaseUrl}/transparency`
   });
 });
