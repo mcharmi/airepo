@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - ".github/workflows/update-lock.yml"
+      - "package.json"
 
 permissions:
   contents: write
