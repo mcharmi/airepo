@@ -1,13 +1,14 @@
 {
   "name": "agent-sign-guard",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "node src/server.js",
     "test": "node --test",
     "smoke:x402": "node scripts/x402-smoke.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "update:ofac": "node scripts/update-ofac-snapshot.js"
   },
   "dependencies": {
     "@coinbase/cdp-sdk": "^1.56.0",
