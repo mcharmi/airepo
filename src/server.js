@@ -148,7 +148,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.error(
         `OFAC SDN refresh failed: ${error instanceof Error ? error.message : String(error)}`
       );
-      if (requireFreshSanctions) {
+      const fallback = getSanctionsStatus();
+      if (fallback.fresh) {
+        console.warn(
+          `Using fresh bundled OFAC snapshot from ${fallback.refreshed_at} with ${fallback.count} EVM addresses`
+        );
+      } else if (requireFreshSanctions) {
         throw new Error(
           "Refusing to start because fresh OFAC SDN data is required."
         );
