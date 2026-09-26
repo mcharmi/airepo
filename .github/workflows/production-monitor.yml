@@ -58,6 +58,19 @@ jobs:
               });
             '
           curl --fail --silent --show-error --max-time 15 \
+            https://agent-sign-guard-main-production.up.railway.app/openapi.json \
+            | node -e '
+              let s="";
+              process.stdin.on("data", c => s += c);
+              process.stdin.on("end", () => {
+                const body = JSON.parse(s);
+                if (body.openapi !== "3.1.0") throw new Error("OpenAPI missing");
+                if (body.paths?.["/risk-check"]?.post?.operationId !== "screenEvmTransactionBeforeSigning") {
+                  throw new Error("risk-check OpenAPI operation missing");
+                }
+              });
+            '
+          curl --fail --silent --show-error --max-time 15 \
             https://agent-sign-guard-main-production.up.railway.app/transparency \
             > /dev/null
 
