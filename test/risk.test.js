@@ -201,3 +201,16 @@ test("blocks EIP-2612 permit with an extra ABI word", () => {
   assert.equal(r.verdict, "BLOCK");
   assert.equal(r.flags.includes("MALFORMED_CALLDATA"), true);
 });
+
+
+test("blocks sanctioned sender globally", () => {
+  const sender = "0x5555555555555555555555555555555555555555";
+  const sanctions = new Set([sender]);
+  const r = analyzeTransaction(
+    { chain: "base", from: sender, to: TO, data: "0x", value: "1" },
+    sanctions
+  );
+  assert.equal(r.verdict, "BLOCK");
+  assert.equal(r.sanctioned_match, true);
+  assert.equal(r.flags.includes("SANCTIONS_MATCH"), true);
+});
