@@ -1,4 +1,4 @@
-# Agent Sign Guard
+# TxPreflight
 
 Deterministic pre-sign transaction risk screening for autonomous agents on Base.
 
@@ -122,7 +122,7 @@ A manual GitHub Actions workflow is included at `.github/workflows/x402-smoke.ym
 
 It checks the complete paid path:
 
-1. starts Agent Sign Guard with x402 enabled in development mode
+1. starts TxPreflight with x402 enabled in development mode
 2. confirms an unpaid request returns HTTP 402
 3. creates a disposable EVM buyer wallet locally
 4. requests Base Sepolia USDC for that address from the CDP faucet
