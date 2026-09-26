@@ -188,6 +188,15 @@ test("serves agent discovery endpoints", async () => {
     assert.equal(sitemap.status, 200);
     assert.match(await sitemap.text(), /<urlset/);
 
+    const openapi = await fetch(`${baseUrl}/openapi.json`);
+    assert.equal(openapi.status, 200);
+    const openapiBody = await openapi.json();
+    assert.equal(openapiBody.openapi, "3.1.0");
+    assert.equal(
+      openapiBody.paths["/risk-check"].post.operationId,
+      "screenEvmTransactionBeforeSigning"
+    );
+
     const manifest = await fetch(`${baseUrl}/.well-known/x402`);
     assert.equal(manifest.status, 200);
     const body = await manifest.json();
