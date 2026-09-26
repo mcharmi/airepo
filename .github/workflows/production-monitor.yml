@@ -24,6 +24,7 @@ jobs:
             if (body.service !== "agent-sign-guard") throw new Error("unexpected service");
             if (body.version !== "0.6.0") throw new Error("unexpected version");
             if (body.x402 !== true) throw new Error("x402 not enabled");
+            if (body.simulation !== true) throw new Error("EVM simulation not enabled");
             if (body.sanctions?.fresh !== true) throw new Error("sanctions data not fresh");
             if (!(body.sanctions?.count > 0)) throw new Error("sanctions set empty");
           ' "$BODY"
