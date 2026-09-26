@@ -24,7 +24,7 @@ const riskLimiter = createFixedWindowRateLimiter({
 const simulationEnabled = process.env.EVM_SIMULATION_ENABLED === "true";
 const publicBaseUrl =
   process.env.PUBLIC_BASE_URL ||
-  "https://agent-sign-guard-main-production.up.railway.app";
+  "https://txpreflight-main-production.up.railway.app";
 const serviceDescription =
   "Pre-sign EVM transaction risk API for AI agents on Base. Detects ERC20 approvals, unlimited approvals, Permit2 permissions and transfers, OFAC SDN EVM address matches, malformed calldata, and adds current-state EVM simulation before signing.";
 
@@ -42,7 +42,7 @@ const bazaarDiscovery = declareDiscoveryExtension({
       chain: {
         type: "string",
         const: "base",
-        description: "Blockchain. Agent Sign Guard currently supports Base."
+        description: "Blockchain. TxPreflight currently supports Base."
       },
       from: {
         type: "string",
@@ -182,7 +182,7 @@ if (x402Enabled) {
         resource: `${publicBaseUrl}/risk-check`,
         description: serviceDescription,
         mimeType: "application/json",
-        serviceName: "Agent Sign Guard",
+        serviceName: "TxPreflight",
         tags: [
           "evm-security",
           "transaction-risk",
@@ -253,19 +253,19 @@ app.get("/", (_req, res) => {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Agent Sign Guard - EVM Transaction Risk API for AI Agents</title>
+  <title>TxPreflight - EVM Transaction Risk API for AI Agents</title>
   <meta name="description" content="Pre-sign EVM transaction risk screening for AI agents on Base. Detect unlimited approvals, Permit2 permissions, OFAC SDN EVM matches, malformed calldata and simulate transactions before signing.">
   <meta name="keywords" content="EVM transaction risk API, AI agent wallet security, pre-sign transaction screening, Base transaction simulation, Permit2 risk, ERC20 approval risk, unlimited approval detection, OFAC wallet screening, x402 API">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="${publicBaseUrl}/">
-  <meta property="og:title" content="Agent Sign Guard - EVM Transaction Risk API">
+  <meta property="og:title" content="TxPreflight - EVM Transaction Risk API">
   <meta property="og:description" content="Pre-sign EVM risk screening for AI agents: Permit2, ERC20 approvals, OFAC SDN matching and Base simulation via x402.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="${publicBaseUrl}/">
   <script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "Agent Sign Guard",
+    name: "TxPreflight",
     applicationCategory: "SecurityApplication",
     operatingSystem: "Web API",
     description:
@@ -275,7 +275,7 @@ app.get("/", (_req, res) => {
 </head>
 <body>
   <main>
-    <h1>Agent Sign Guard</h1>
+    <h1>TxPreflight</h1>
     <p>Deterministic pre-sign transaction risk screening for autonomous agents and wallets on Base.</p>
     <h2>What it detects</h2>
     <ul>
@@ -298,7 +298,7 @@ app.get("/openapi.json", (_req, res) => {
   res.json({
     openapi: "3.1.0",
     info: {
-      title: "Agent Sign Guard API",
+      title: "TxPreflight API",
       version: "0.6.0",
       description: serviceDescription
     },
@@ -401,11 +401,11 @@ app.get("/openapi.json", (_req, res) => {
 });
 
 app.get("/llms.txt", (_req, res) => {
-  res.type("text/plain").send(`# Agent Sign Guard
+  res.type("text/plain").send(`# TxPreflight
 
 > Pre-sign EVM transaction risk API for AI agents, autonomous wallets, and agentic payment systems on Base.
 
-Agent Sign Guard helps an AI agent decide whether an unsigned EVM transaction should be ALLOWed, REVIEWed, or BLOCKed before signing.
+TxPreflight helps an AI agent decide whether an unsigned EVM transaction should be ALLOWed, REVIEWed, or BLOCKed before signing.
 
 ## Primary endpoint
 - POST ${publicBaseUrl}/risk-check
@@ -489,7 +489,7 @@ app.get("/security.txt", (_req, res) => {
 
 app.get("/.well-known/x402", (_req, res) => {
   res.json({
-    name: "Agent Sign Guard",
+    name: "TxPreflight",
     version: "0.6.0",
     protocol: "x402",
     resource: `${publicBaseUrl}/risk-check`,
@@ -522,7 +522,7 @@ app.get("/.well-known/x402", (_req, res) => {
 
 app.get("/transparency", (_req, res) => {
   res.json({
-    service: "Agent Sign Guard",
+    service: "TxPreflight",
     version: "0.6.0",
     decision_path: "deterministic",
     llm_in_decision_path: false,
@@ -553,7 +553,7 @@ app.get("/.well-known/agent-card.json", (_req, res) => {
   res.status(404).json({
     error: "NOT_A2A_SERVER",
     message:
-      "Agent Sign Guard is an x402 HTTP API, not an A2A JSON-RPC server. Use /llms.txt and /.well-known/x402 for machine-readable discovery."
+      "TxPreflight is an x402 HTTP API, not an A2A JSON-RPC server. Use /llms.txt and /.well-known/x402 for machine-readable discovery."
   });
 });
 
@@ -561,7 +561,7 @@ app.get("/.well-known/agent.json", (_req, res) => {
   res.status(404).json({
     error: "NOT_A2A_SERVER",
     message:
-      "Agent Sign Guard does not claim A2A protocol compatibility. Use /llms.txt and /.well-known/x402."
+      "TxPreflight does not claim A2A protocol compatibility. Use /llms.txt and /.well-known/x402."
   });
 });
 
@@ -576,7 +576,7 @@ app.get("/metrics", (_req, res) => {
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
-    service: "agent-sign-guard",
+    service: "txpreflight",
     version: "0.6.0",
     x402: x402Enabled,
     simulation: simulationEnabled,
@@ -672,6 +672,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
   const port = Number(process.env.PORT || 3000);
   app.listen(port, () => {
-    console.log(`agent-sign-guard listening on :${port}`);
+    console.log(`txpreflight listening on :${port}`);
   });
 }
