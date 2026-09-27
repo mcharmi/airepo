@@ -55,6 +55,8 @@ jobs:
                 const body = JSON.parse(s);
                 if (body.protocol !== "x402") throw new Error("x402 manifest missing");
                 if (!body.tags?.includes("permit2")) throw new Error("discovery tags missing");
+                if (body.price !== "$0.003") throw new Error("unexpected x402 price");
+                if (!body.free_precheck?.resource?.endsWith("/classify")) throw new Error("free precheck missing");
               });
             '
           curl --fail --silent --show-error --max-time 15 \
@@ -74,6 +76,19 @@ jobs:
             https://agent-sign-guard-main-production.up.railway.app/transparency \
             > /dev/null
 
+
+      - name: Check free classifier
+        run: |
+          BODY=$(curl --fail --silent --show-error --max-time 15 \
+            -X POST https://agent-sign-guard-main-production.up.railway.app/classify \
+            -H 'content-type: application/json' \
+            --data '{"chain":"base","to":"0x1111111111111111111111111111111111111111","data":"0x095ea7b30000000000000000000000002222222222222222222222222222222222222222ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","value":"0"}')
+          node -e '
+            const body = JSON.parse(process.argv[1]);
+            if (body.action !== "ERC20_APPROVE") throw new Error("classifier action mismatch");
+            if (body.payment_recommended !== true) throw new Error("classifier recommendation missing");
+            if ("verdict" in body) throw new Error("free classifier leaked paid verdict");
+          ' "$BODY"
 
       - name: Check x402 Bazaar metadata
         run: |
