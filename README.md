@@ -6,7 +6,7 @@ TxPreflight gives autonomous agents, wallets, and transaction orchestrators a de
 
 **Live endpoint:** `POST https://agent-sign-guard-main-production.up.railway.app/risk-check`  
 **Payment:** x402  
-**Price:** $0.01 USDC per request  
+**Price:** $0.003 USDC per request  
 **Network:** Base Mainnet (`eip155:8453`)  
 **Response:** structured JSON
 
@@ -31,7 +31,12 @@ For normal autonomous execution:
 
 TxPreflight is a risk signal, not a guarantee that a transaction is safe and not legal sanctions clearance.
 
-## Request
+## Free pre-check
+
+Agents can first call `POST /classify` at no charge. It returns only a coarse transaction type and whether a full paid pre-sign check is recommended. It intentionally does **not** return sanctions screening, deep approval analysis, a risk verdict, or EVM simulation.
+
+## Paid request
+
 
 ```http
 POST /risk-check
@@ -138,10 +143,11 @@ An unpaid request returns HTTP `402 Payment Required` with x402 payment requirem
 
 A compatible x402 buyer can:
 
-1. discover the resource and request schema
-2. sign the $0.01 USDC payment authorization on Base
-3. retry the request with payment proof
-4. receive the risk result as HTTP `200`
+1. optionally call `/classify` for a free coarse pre-check
+2. discover the paid resource and request schema
+3. sign the $0.003 USDC payment authorization on Base
+4. retry the request with payment proof
+5. receive the risk result as HTTP `200`
 
 A real Base Mainnet payment path has been verified end-to-end.
 
