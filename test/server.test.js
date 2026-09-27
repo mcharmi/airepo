@@ -220,3 +220,36 @@ test("does not falsely claim A2A compatibility", async () => {
     assert.equal(body.error, "NOT_A2A_SERVER");
   });
 });
+
+
+test("free classify endpoint returns coarse action without paid analysis", async () => {
+  await withServer(async baseUrl => {
+    const data =
+      "0x095ea7b3" +
+      "2222222222222222222222222222222222222222".padStart(64, "0") +
+      "f".repeat(64);
+    const res = await fetch(`${baseUrl}/classify`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...VALID_BODY, data, value: "0" })
+    });
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(body.action, "ERC20_APPROVE");
+    assert.equal(body.payment_recommended, true);
+    assert.equal("verdict" in body, false);
+    assert.equal("sanctioned_match" in body, false);
+    assert.equal("simulation" in body, false);
+  });
+});
+
+test("discovery exposes free precheck and conversion-oriented tags", async () => {
+  await withServer(async baseUrl => {
+    const manifest = await fetch(`${baseUrl}/.well-known/x402`);
+    const body = await manifest.json();
+    assert.equal(body.free_precheck.method, "POST");
+    assert.match(body.free_precheck.resource, /\/classify$/);
+    assert.equal(body.tags.includes("wallet-security"), true);
+    assert.equal(body.tags.includes("approval-check"), true);
+  });
+});
