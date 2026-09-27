@@ -1,6 +1,7 @@
 import express from "express";
 import { pathToFileURL } from "node:url";
 import { analyzeTransaction } from "./risk.js";
+import { PERMIT2_ADDRESS } from "./permit2.js";
 import { loadSanctionsSet, refreshOfacSanctions, getSanctionsStatus } from "./sanctions.js";
 import { createFixedWindowRateLimiter } from "./rate-limit.js";
 import { observeRequest, markRateLimited, getMetricsSnapshot } from "./observability.js";
@@ -26,7 +27,7 @@ const publicBaseUrl =
   process.env.PUBLIC_BASE_URL ||
   "https://agent-sign-guard-main-production.up.railway.app";
 const serviceDescription =
-  "Call before signing or broadcasting a Base transaction. TxPreflight returns a deterministic ALLOW, REVIEW, or BLOCK decision for unsigned EVM transactions, with ERC20/Permit2 approval analysis, direct OFAC SDN EVM screening, malformed-calldata detection, and current-state Base simulation.";
+  "Spend a fraction of a cent to independently screen a Base transaction before risking onchain value. TxPreflight returns deterministic ALLOW, REVIEW, or BLOCK with ERC20/Permit2 approval analysis, direct OFAC SDN EVM screening, malformed-calldata detection, and current-state Base simulation.";
 
 const bazaarDiscovery = declareDiscoveryExtension({
   bodyType: "json",
@@ -174,7 +175,7 @@ if (x402Enabled) {
         accepts: [
           {
             scheme: "exact",
-            price: process.env.X402_PRICE || "$0.01",
+            price: process.env.X402_PRICE || "$0.003",
             network,
             payTo: ""
           }
@@ -185,7 +186,14 @@ if (x402Enabled) {
         serviceName: "TxPreflight",
         tags: [
           "evm-security",
+          "wallet-security",
+          "pre-sign-security",
           "transaction-risk",
+          "transaction-simulation",
+          "approval-check",
+          "permit2-security",
+          "agent-wallet",
+          "fraud-prevention",
           "base",
           "permit2",
           "x402"
@@ -238,6 +246,44 @@ function isSemanticallyValidPayload(body) {
   return true;
 }
 
+
+function classifyTransactionShape(body) {
+  const data = body.data.toLowerCase();
+  const selector = data.length >= 10 ? data.slice(2, 10) : null;
+  const to = body.to.toLowerCase();
+
+  let action = "UNKNOWN";
+  if (data === "0x") {
+    action = BigInt(body.value) > 0n ? "NATIVE_TRANSFER" : "EMPTY_CALLDATA";
+  } else if (to === PERMIT2_ADDRESS) {
+    action = "PERMIT2";
+  } else if (selector === "a9059cbb") {
+    action = "ERC20_TRANSFER";
+  } else if (selector === "095ea7b3") {
+    action = "ERC20_APPROVE";
+  } else if (selector === "a22cb465") {
+    action = "SET_APPROVAL_FOR_ALL";
+  } else if (selector === "d505accf") {
+    action = "EIP2612_PERMIT";
+  }
+
+  const paymentRecommended = [
+    "ERC20_APPROVE",
+    "SET_APPROVAL_FOR_ALL",
+    "EIP2612_PERMIT",
+    "PERMIT2",
+    "UNKNOWN"
+  ].includes(action);
+
+  return {
+    action,
+    known_shape: action !== "UNKNOWN",
+    payment_recommended: paymentRecommended,
+    next_step: paymentRecommended
+      ? "POST /risk-check for sanctions screening, deep approval analysis, and current-state simulation."
+      : "POST /risk-check when independent sanctions screening and current-state simulation are required."
+  };
+}
 
 const publicExample = {
   chain: "base",
@@ -304,6 +350,38 @@ app.get("/openapi.json", (_req, res) => {
     },
     servers: [{ url: publicBaseUrl }],
     paths: {
+      "/classify": {
+        post: {
+          operationId: "classifyUnsignedBaseTransaction",
+          summary: "Free coarse classification before a paid risk check",
+          description:
+            "Classifies the transaction shape without sanctions screening or EVM simulation. Use the paid /risk-check endpoint for an independent pre-sign decision.",
+          tags: ["AI Agents", "Base", "Transaction Classification"],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    chain: { type: "string", const: "base" },
+                    from: { type: "string", pattern: "^0x[0-9a-fA-F]{40}$" },
+                    to: { type: "string", pattern: "^0x[0-9a-fA-F]{40}$" },
+                    data: { type: "string", pattern: "^0x([0-9a-fA-F]{2})*$" },
+                    value: { type: "string", pattern: "^[0-9]+$" }
+                  },
+                  required: ["chain", "to", "data", "value"]
+                },
+                example: publicExample
+              }
+            }
+          },
+          responses: {
+            "200": { description: "Free coarse transaction classification." },
+            "400": { description: "Invalid transaction payload." }
+          }
+        }
+      },
       "/risk-check": {
         post: {
           operationId: "screenEvmTransactionBeforeSigning",
@@ -408,10 +486,14 @@ app.get("/llms.txt", (_req, res) => {
 ## When to call
 Call TxPreflight immediately before signing or broadcasting an unsigned Base transaction when your agent is about to transfer value, approve token spending, grant or use Permit2 permissions, call setApprovalForAll, interact with third-party calldata, or execute a transaction proposed by another app, tool, contract, or agent.
 
-## Endpoint
+## Free pre-check
+POST ${publicBaseUrl}/classify
+Use this zero-cost endpoint to classify the transaction shape. It does not perform sanctions screening or EVM simulation.
+
+## Paid endpoint
 POST ${publicBaseUrl}/risk-check
 Payment: x402
-Price: ${process.env.X402_PRICE || "$0.01"} USDC
+Price: ${process.env.X402_PRICE || "$0.003"} USDC
 Payment network: ${requestedEnvironment === "production" ? "Base Mainnet (eip155:8453)" : "Base Sepolia (eip155:84532)"}
 Content-Type: application/json
 
@@ -488,17 +570,29 @@ app.get("/.well-known/x402", (_req, res) => {
     resource: `${publicBaseUrl}/risk-check`,
     method: "POST",
     description: serviceDescription,
-    price: process.env.X402_PRICE || "$0.01",
+    price: process.env.X402_PRICE || "$0.003",
     payment_network:
       requestedEnvironment === "production" ? "eip155:8453" : "eip155:84532",
     content_type: "application/json",
     tags: [
       "evm-security",
+      "wallet-security",
+      "pre-sign-security",
       "transaction-risk",
+      "transaction-simulation",
+      "approval-check",
+      "permit2-security",
+      "agent-wallet",
+      "fraud-prevention",
       "base",
       "permit2",
       "x402"
     ],
+    free_precheck: {
+      resource: `${publicBaseUrl}/classify`,
+      method: "POST",
+      purpose: "Coarse transaction classification without sanctions screening or simulation."
+    },
     when_to_call: [
       "immediately before signing or broadcasting an unsigned Base transaction",
       "before ERC20 approvals or token transfers",
@@ -587,6 +681,18 @@ app.get("/health", (_req, res) => {
     simulation: simulationEnabled,
     sanctions: getSanctionsStatus()
   });
+});
+
+app.post("/classify", (req, res) => {
+  if (!isRiskCheckPayload(req.body) || !isSemanticallyValidPayload(req.body)) {
+    return res.status(400).json({
+      error: "INVALID_REQUEST",
+      message:
+        "Expected Base transaction fields: chain, to, data, value; optional from."
+    });
+  }
+
+  return res.json(classifyTransactionShape(req.body));
 });
 
 app.post("/risk-check", async (req, res) => {
