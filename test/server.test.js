@@ -253,3 +253,49 @@ test("discovery exposes free precheck and conversion-oriented tags", async () =>
     assert.equal(body.tags.includes("approval-check"), true);
   });
 });
+
+
+test("free classifier exposes useful approval structure but no paid security verdict", async () => {
+  await withServer(async baseUrl => {
+    const spender = "2222222222222222222222222222222222222222";
+    const data =
+      "0x095ea7b3" +
+      spender.padStart(64, "0") +
+      "f".repeat(64);
+    const res = await fetch(`${baseUrl}/classify`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...VALID_BODY, data, value: "0" })
+    });
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(body.action, "ERC20_APPROVE");
+    assert.equal(body.token, VALID_BODY.to);
+    assert.equal(body.spender, `0x${spender}`);
+    assert.equal(body.unlimited_approval_candidate, true);
+    assert.equal(body.payment_recommended, true);
+    assert.match(body.recommendation_reason, /Unlimited ERC20 approval/i);
+    assert.equal(body.paid_check.price, "$0.003");
+    assert.equal(body.paid_check.adds.includes("direct OFAC SDN EVM screening"), true);
+    assert.equal("verdict" in body, false);
+    assert.equal("risk_score" in body, false);
+    assert.equal("sanctioned_match" in body, false);
+    assert.equal("simulation" in body, false);
+  });
+});
+
+test("free classifier gives a concrete paid-check reason for native value transfers", async () => {
+  await withServer(async baseUrl => {
+    const res = await fetch(`${baseUrl}/classify`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(VALID_BODY)
+    });
+    const body = await res.json();
+    assert.equal(body.action, "NATIVE_TRANSFER");
+    assert.equal(body.recipient, VALID_BODY.to);
+    assert.equal(body.amount, "1");
+    assert.equal(body.payment_recommended, true);
+    assert.match(body.recommendation_reason, /Native value is being transferred/i);
+  });
+});
