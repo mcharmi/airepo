@@ -1,7 +1,7 @@
 import express from "express";
 import { pathToFileURL } from "node:url";
 import { analyzeTransaction } from "./risk.js";
-import { PERMIT2_ADDRESS } from "./permit2.js";
+import { PERMIT2_ADDRESS, decodePermit2 } from "./permit2.js";
 import { loadSanctionsSet, refreshOfacSanctions, getSanctionsStatus } from "./sanctions.js";
 import { createFixedWindowRateLimiter } from "./rate-limit.js";
 import { observeRequest, markRateLimited, getMetricsSnapshot } from "./observability.js";
@@ -252,37 +252,118 @@ function classifyTransactionShape(body) {
   const selector = data.length >= 10 ? data.slice(2, 10) : null;
   const to = body.to.toLowerCase();
 
-  let action = "UNKNOWN";
+  const result = {
+    action: "UNKNOWN",
+    known_shape: false,
+    token: null,
+    spender: null,
+    recipient: null,
+    amount: null,
+    unlimited_approval_candidate: false,
+    permit2: false,
+    payment_recommended: true,
+    recommendation_reason:
+      "Unknown contract calldata benefits from deterministic decoding, sanctions screening, and current-state simulation.",
+    paid_check: {
+      endpoint: `${publicBaseUrl}/risk-check`,
+      price: process.env.X402_PRICE || "$0.003",
+      adds: [
+        "deterministic ALLOW/REVIEW/BLOCK decision",
+        "direct OFAC SDN EVM screening",
+        "deep approval and Permit2 policy analysis",
+        "malformed-calldata detection",
+        "current-state Base eth_call simulation and gas estimation"
+      ]
+    }
+  };
+
   if (data === "0x") {
-    action = BigInt(body.value) > 0n ? "NATIVE_TRANSFER" : "EMPTY_CALLDATA";
-  } else if (to === PERMIT2_ADDRESS) {
-    action = "PERMIT2";
-  } else if (selector === "a9059cbb") {
-    action = "ERC20_TRANSFER";
-  } else if (selector === "095ea7b3") {
-    action = "ERC20_APPROVE";
-  } else if (selector === "a22cb465") {
-    action = "SET_APPROVAL_FOR_ALL";
-  } else if (selector === "d505accf") {
-    action = "EIP2612_PERMIT";
+    result.action = BigInt(body.value) > 0n ? "NATIVE_TRANSFER" : "EMPTY_CALLDATA";
+    result.known_shape = true;
+    result.recipient = to;
+    result.amount = body.value;
+    result.payment_recommended = BigInt(body.value) > 0n;
+    result.recommendation_reason =
+      BigInt(body.value) > 0n
+        ? "Native value is being transferred; paid screening checks the destination against direct OFAC SDN EVM data and simulates current chain state."
+        : "No calldata and zero native value detected; paid screening is optional unless independent destination screening is required.";
+    return result;
   }
 
-  const paymentRecommended = [
-    "ERC20_APPROVE",
-    "SET_APPROVAL_FOR_ALL",
-    "EIP2612_PERMIT",
-    "PERMIT2",
-    "UNKNOWN"
-  ].includes(action);
+  if (to === PERMIT2_ADDRESS) {
+    result.permit2 = true;
+    result.token = null;
+    const decoded = decodePermit2(body.data);
+    if (decoded.recognized) {
+      result.action = decoded.action;
+      result.known_shape = true;
+      result.token = decoded.token ?? null;
+      result.spender = decoded.spender ?? body.from?.toLowerCase() ?? null;
+      result.recipient = decoded.recipient ?? null;
+      result.amount = decoded.amount ?? null;
+      result.unlimited_approval_candidate = decoded.unlimited === true;
+      result.recommendation_reason = decoded.unlimited
+        ? "Permit2 calldata contains an unlimited allowance candidate; paid screening applies policy checks, address screening, and simulation before signing."
+        : "Permit2 can authorize token spending or movement; paid screening validates the decoded permission, involved addresses, and current-state execution.";
+    } else {
+      result.action = "PERMIT2_UNDECODED";
+      result.recommendation_reason =
+        "Canonical Permit2 calldata could not be safely decoded; paid screening fails closed on malformed Permit2 calls.";
+    }
+    return result;
+  }
 
-  return {
-    action,
-    known_shape: action !== "UNKNOWN",
-    payment_recommended: paymentRecommended,
-    next_step: paymentRecommended
-      ? "POST /risk-check for sanctions screening, deep approval analysis, and current-state simulation."
-      : "POST /risk-check when independent sanctions screening and current-state simulation are required."
+  const wordAt = index => data.slice(10 + index * 64, 10 + (index + 1) * 64);
+  const addressWord = index => {
+    const w = wordAt(index);
+    return w.length === 64 ? `0x${w.slice(24)}` : null;
   };
+  const uintWord = index => {
+    const w = wordAt(index);
+    if (w.length !== 64) return null;
+    try { return BigInt(`0x${w}`).toString(); } catch { return null; }
+  };
+
+  if (selector === "a9059cbb") {
+    result.action = "ERC20_TRANSFER";
+    result.known_shape = data.length === 138;
+    result.token = to;
+    result.recipient = addressWord(0);
+    result.amount = uintWord(1);
+    result.recommendation_reason =
+      "Token value is being transferred; paid screening checks involved addresses and simulates current-state execution.";
+  } else if (selector === "095ea7b3") {
+    result.action = "ERC20_APPROVE";
+    result.known_shape = data.length === 138;
+    result.token = to;
+    result.spender = addressWord(0);
+    result.amount = uintWord(1);
+    result.unlimited_approval_candidate =
+      result.amount === ((1n << 256n) - 1n).toString();
+    result.recommendation_reason = result.unlimited_approval_candidate
+      ? "Unlimited ERC20 approval candidate detected; paid screening applies deterministic approval policy, spender screening, and simulation."
+      : "ERC20 approval grants spending authority; paid screening evaluates the spender, approval policy, and current-state execution.";
+  } else if (selector === "a22cb465") {
+    result.action = "SET_APPROVAL_FOR_ALL";
+    result.known_shape = data.length === 138;
+    result.token = to;
+    result.spender = addressWord(0);
+    result.recommendation_reason =
+      "setApprovalForAll can grant collection-wide operator authority; paid screening validates the operator and policy before signing.";
+  } else if (selector === "d505accf") {
+    result.action = "EIP2612_PERMIT";
+    result.known_shape = data.length === 458;
+    result.token = to;
+    result.spender = addressWord(1);
+    result.amount = uintWord(2);
+    result.unlimited_approval_candidate =
+      result.amount === ((1n << 256n) - 1n).toString();
+    result.recommendation_reason = result.unlimited_approval_candidate
+      ? "Unlimited EIP-2612 permit candidate detected; paid screening applies deterministic permit policy, spender screening, and simulation."
+      : "EIP-2612 can grant token spending authority by signature; paid screening evaluates the spender, amount, and execution context.";
+  }
+
+  return result;
 }
 
 const publicExample = {
@@ -355,7 +436,7 @@ app.get("/openapi.json", (_req, res) => {
           operationId: "classifyUnsignedBaseTransaction",
           summary: "Free coarse classification before a paid risk check",
           description:
-            "Classifies the transaction shape without sanctions screening or EVM simulation. Use the paid /risk-check endpoint for an independent pre-sign decision.",
+            "Free pre-check that decodes common transaction structure, including token, spender, recipient, amount, Permit2 involvement, and unlimited-approval candidates when safely derivable. It intentionally does not return a security verdict, sanctions result, or simulation. Follow payment_recommended and recommendation_reason to decide whether to call the paid /risk-check endpoint.",
           tags: ["AI Agents", "Base", "Transaction Classification"],
           requestBody: {
             required: true,
@@ -488,7 +569,7 @@ Call TxPreflight immediately before signing or broadcasting an unsigned Base tra
 
 ## Free pre-check
 POST ${publicBaseUrl}/classify
-Use this zero-cost endpoint to classify the transaction shape. It does not perform sanctions screening or EVM simulation.
+Use this zero-cost endpoint first. It decodes common transaction structure (action, token, spender, recipient, amount, Permit2 and unlimited-approval candidates) and returns payment_recommended plus a concrete recommendation_reason. It does not provide ALLOW/REVIEW/BLOCK, sanctions results, or EVM simulation.
 
 ## Paid endpoint
 POST ${publicBaseUrl}/risk-check
@@ -591,7 +672,7 @@ app.get("/.well-known/x402", (_req, res) => {
     free_precheck: {
       resource: `${publicBaseUrl}/classify`,
       method: "POST",
-      purpose: "Coarse transaction classification without sanctions screening or simulation."
+      purpose: "Free structural pre-check with action/token/spender/recipient/amount hints and a concrete reason to escalate; no security verdict, sanctions result, or simulation."
     },
     when_to_call: [
       "immediately before signing or broadcasting an unsigned Base transaction",
