@@ -1,6 +1,6 @@
 {
   "source": "https://sanctionslistservice.ofac.treas.gov/api/PublicationPreview/exports/SDN.CSV",
-  "generated_at": "2026-11-12T12:40:14.686Z",
+  "generated_at": "2026-11-13T12:10:23.609Z",
   "count": 94,
   "addresses": [
     "0x0330070fd38ec3bb94f58fa55d40368271e9e54a",
